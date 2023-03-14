@@ -25,11 +25,11 @@ export default function PokemonCombobox({
         valueContainer: () => "rounded-lg bg-purple-800",
         singleValue: () =>
           "capitalize bg-purple-800 text-purple-100 rounded-lg",
-        menuList: () => "rounded-lg",
-        menu: () => "rounded-lg bg-purple-800 text-purple-100 mt-1",
+        menuList: () => "rounded-lg text-sm",
+        menu: () => "rounded-lg text-sm bg-purple-800 text-purple-100 mt-1",
         option: (props) =>
           clsx(
-            "flex items-center bg-purple-800 text-purple-100 w-full h-full px-4",
+            "!flex items-center bg-purple-800 text-purple-100 w-full h-full px-4",
             "capitalize",
             props.isFocused && "!bg-purple-700"
           ),
@@ -51,8 +51,6 @@ function MenuList({
   options,
   maxHeight,
   getValue,
-  getClassNames,
-  innerProps,
 }: MenuListProps<OptionProps>) {
   const [value] = getValue();
   const initialOffset = options.indexOf(value) * HEIGHT;

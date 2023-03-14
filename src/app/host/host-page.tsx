@@ -37,7 +37,7 @@ export default function Host({
       </hgroup>
       <form className="w-full max-w-screen-sm rounded-xl bg-purple-900 p-2">
         <div className="flex gap-2 mb-2">
-          <div className="w-full max-w-[theme(spacing.64)]">
+          <div className="w-full max-w-[theme(spacing.56)]">
             <Stars onChange={setStars} />
             <Pokemon className="mb-2" name={pokemon?.name} />
             <PokemonCombobox onChange={setPokemon} pokemonList={pokemonList} />
