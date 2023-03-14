@@ -23,11 +23,11 @@
   }
 
   *::-webkit-scrollbar-thumb {
-    @apply bg-purple-500/50 border border-zinc-700 rounded-full;
+    @apply bg-violet-500/50 border border-zinc-700 rounded-full;
     @apply transition-colors;
   }
 
   *::-webkit-scrollbar-thumb:hover {
-    @apply bg-purple-500;
+    @apply bg-violet-500;
   }
 }

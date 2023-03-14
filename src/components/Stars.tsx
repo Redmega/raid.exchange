@@ -22,7 +22,7 @@ export default function Stars({ onChange }: { onChange(stars: number): void }) {
           key={star}
           className={clsx(
             "text-xl transition-colors",
-            star <= value ? "text-yellow-300" : "text-purple-50"
+            star <= value ? "text-yellow-300" : "text-violet-50"
           )}
           type="button"
           value={star}

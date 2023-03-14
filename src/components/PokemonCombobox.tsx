@@ -19,19 +19,19 @@ export default function PokemonCombobox({
       classNames={{
         control: () =>
           clsx(
-            "border-2 border-transparent focus-within:border-purple-500 bg-purple-800 text-purple-100 rounded-lg px-4",
+            "border-2 border-transparent focus-within:border-violet-500 bg-violet-800 text-violet-100 rounded-lg px-4",
             "text-sm"
           ),
-        valueContainer: () => "rounded-lg bg-purple-800",
+        valueContainer: () => "rounded-lg bg-violet-800",
         singleValue: () =>
-          "capitalize bg-purple-800 text-purple-100 rounded-lg",
+          "capitalize bg-violet-800 text-violet-100 rounded-lg",
         menuList: () => "rounded-lg text-sm",
-        menu: () => "rounded-lg text-sm bg-purple-800 text-purple-100 mt-1",
+        menu: () => "rounded-lg text-sm bg-violet-800 text-violet-100 mt-1",
         option: (props) =>
           clsx(
-            "!flex items-center bg-purple-800 text-purple-100 w-full h-full px-4",
+            "!flex items-center bg-violet-800 text-violet-100 w-full h-full px-4",
             "capitalize",
-            props.isFocused && "!bg-purple-700"
+            props.isFocused && "!bg-violet-700"
           ),
       }}
       placeholder="Choose Your Pokemon"

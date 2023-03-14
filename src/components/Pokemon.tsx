@@ -1,4 +1,4 @@
-import pokemonClient from "~/utils/pokemon-client";
+import pokeApi from "~/utils/pokemon-client";
 import { Pokemon as IPokemon } from "pokenode-ts";
 import { useEffect, useState } from "react";
 
@@ -17,7 +17,7 @@ export default function Pokemon({
 
   useEffect(() => {
     if (name)
-      pokemonClient
+      pokeApi.pokemon
         .getPokemonByName(name)
         .then((pokemon) => setPokemon(pokemon));
   }, [name]);
