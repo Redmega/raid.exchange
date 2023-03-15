@@ -1,25 +1,11 @@
-import pokeApi from "~/utils/pokemon-client";
 import HostPage from "./host-page";
 
-async function getPokemonList() {
-  const res = await pokeApi.pokemon.listPokemons(undefined, 9999);
-  return res.results;
-}
+export const metadata = {
+  title: "Host | Raid.Exchange",
+  description:
+    "Start a new lobby and send your unique invite url so people can join!",
+};
 
-async function getItemList() {
-  const res = await pokeApi.items.listItems(undefined, 9999);
-  return Promise.all(
-    res.results
-      .filter(
-        (item) =>
-          item.name.includes("herba") || item.name.includes("bottle-cap")
-      )
-      .map((item) => pokeApi.items.getItemByName(item.name))
-  );
-}
-
-export default async function Page() {
-  const pokemonList = await getPokemonList();
-  const itemList = await getItemList();
-  return <HostPage itemList={itemList} pokemonList={pokemonList} />;
+export default function Page() {
+  return <HostPage />;
 }

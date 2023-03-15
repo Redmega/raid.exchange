@@ -1,90 +1,152 @@
 "use client";
 
-import { useUser } from "@supabase/auth-helpers-react";
-import Image from "next/image";
-import AuthHeader from "~/components/AuthHeader";
-import { useSupabaseClient } from "~/utils/supabase-client";
-import Logo from "$/logo.png";
-import { Item, NamedAPIResource } from "pokenode-ts";
-import { MouseEvent, useCallback, useState } from "react";
-import PokemonCombobox from "~/components/PokemonCombobox";
-import Pokemon from "~/components/Pokemon";
-import Stars from "~/components/Stars";
-import { unSlugify } from "~/utils/pokemon-client";
-import { times } from "lodash-es";
-import XMarkIcon from "@heroicons/react/24/solid/XMarkIcon";
+import { FormEvent, MouseEvent, useCallback, useContext, useState } from "react";
+import { generateRandomSlug, unSlugify } from "~/utils/pokemon-client";
+import { NamedAPIResource } from "pokenode-ts";
+import { PokemonContext } from "~/components/PokemonProvider";
 import { Transition } from "@headlessui/react";
+import { times } from "lodash-es";
+import { useRouter } from "next/navigation";
+import { useSupabaseClient } from "~/utils/supabase-client";
+import { useUser } from "@supabase/auth-helpers-react";
+import AuthHeader from "~/components/AuthHeader";
+import Image from "next/image";
+import Logo from "$/logo.png";
+import Pokemon from "~/components/Pokemon";
+import PokemonCombobox from "~/components/PokemonCombobox";
+import Stars from "~/components/Stars";
+import XMarkIcon from "@heroicons/react/24/solid/XMarkIcon";
 
-export default function Host({
-  itemList,
-  pokemonList,
-}: {
-  itemList: Item[];
-  pokemonList: NamedAPIResource[];
-}) {
+export default function Host() {
+  const { rewards: itemList, pokemon: pokemonList } = useContext(PokemonContext);
   const supabase = useSupabaseClient();
   const user = useUser();
+  const router = useRouter();
 
-  const [pokemon, setPokemon] = useState<NamedAPIResource>();
-  const [stars, setStars] = useState(5);
-  const [items, setItems] = useState<Record<string, number>>({});
+  const savedData = window.localStorage.getItem("RE_SAVED_LOBBY");
+  const parsedData = savedData ? JSON.parse(savedData) : undefined;
 
-  const handleItemAdded = useCallback(
-    (event: MouseEvent<HTMLButtonElement>) => {
-      const name = event.currentTarget.value;
-      setItems((items) => ({ ...items, [name]: (items[name] ?? 0) + 1 }));
+  const [repeat, setRepeat] = useState(parsedData?.repeat ?? false);
+  const [stars, setStars] = useState(parsedData?.stars ?? 5);
+  const [pokemon, setPokemon] = useState<NamedAPIResource>(parsedData?.pokemon ?? undefined);
+  const [description, setDescription] = useState(parsedData?.description ?? "");
+  const [rewards, setRewards] = useState<Record<string, number>>(parsedData?.rewards ?? {});
+
+  const handleItemAdded = useCallback((event: MouseEvent<HTMLButtonElement>) => {
+    const name = event.currentTarget.value;
+    setRewards((items) => ({ ...items, [name]: (items[name] ?? 0) + 1 }));
+  }, []);
+
+  const handleItemRemoved = useCallback((event: MouseEvent<HTMLButtonElement>) => {
+    const name = event.currentTarget.value;
+    setRewards((items) => ({ ...items, [name]: items[name] - 1 }));
+  }, []);
+
+  const handleCreateLobby = useCallback(
+    async (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      // Save our data so we can check it when we come back
+      window.localStorage.setItem(
+        "RE_SAVED_LOBBY",
+        JSON.stringify({
+          pokemon,
+          stars,
+          rewards,
+          repeat,
+          description,
+        })
+      );
+      if (!user) {
+        return supabase.auth.signInWithOAuth({
+          provider: "discord",
+          options: {
+            scopes: "identify",
+          },
+        });
+      }
+
+      // Generate a random slug firmness-softness-flavor-berries
+
+      // let slug = generateRandomSlug();
+      // test repeat slugs
+      let slug: string | undefined;
+      while (slug === undefined) {
+        slug = generateRandomSlug();
+        // check if generated slug exists
+        const response = await supabase.from("lobby").select("slug", { count: "exact" }).eq("slug", slug).limit(1);
+        if (response.count === 1) slug = undefined;
+      }
+
+      supabase
+        .from("lobby")
+        .insert({
+          slug,
+          stars,
+          description,
+          pokemon_name: pokemon.name,
+          repeat,
+          rewards,
+          host_id: user.id,
+        })
+        .select()
+        .single()
+        .then(
+          async (response) => {
+            if (response.error) {
+              console.error(response.error);
+              return;
+            }
+
+            const lobby = response.data;
+
+            // Add user to queue
+            await supabase.from("lobby_users").insert({
+              lobby_id: response.data.id,
+              user_id: user.id,
+            });
+
+            return router.push(`/lobby/${slug}`);
+          },
+          (reason) => {
+            console.log("failed", reason);
+          }
+        );
     },
-    []
-  );
-
-  const handleItemRemoved = useCallback(
-    (event: MouseEvent<HTMLButtonElement>) => {
-      const name = event.currentTarget.value;
-      setItems((items) => ({ ...items, [name]: items[name] - 1 }));
-    },
-    []
+    [description, pokemon, repeat, rewards, router, stars, supabase, user]
   );
 
   return (
-    <main className="relative h-full w-full flex flex-col items-center justify-center">
+    <>
       <AuthHeader />
       <hgroup className="mb-8 text-center">
-        <Image
-          className="h-24 w-24 mx-auto"
-          alt="Raid.Exchange Logo"
-          src={Logo}
-        />
-        <h1 className="font-title font-bold text-2xl sm:text-4xl text-zinc-100 leading-relaxed">
-          Create a Lobby
-        </h1>
+        <Image className="h-24 w-24 mx-auto" alt="Raid.Exchange Logo" src={Logo} />
+        <h1 className="font-title font-bold text-2xl sm:text-4xl text-zinc-100 leading-relaxed">Create a Lobby</h1>
       </hgroup>
-      <form className="w-full max-w-screen-sm rounded-xl bg-violet-900 p-2">
-        <div className="flex gap-2 mb-2">
+      <form className="w-full max-w-screen-sm rounded-xl bg-violet-900 p-2" onSubmit={handleCreateLobby}>
+        <div className="flex flex-col items-center sm:items-stretch sm:flex-row gap-2 mb-4">
           <div className="w-full max-w-[theme(spacing.56)]">
-            <Stars onChange={setStars} />
-            <Pokemon className="mb-2" name={pokemon?.name} />
-            <PokemonCombobox onChange={setPokemon} pokemonList={pokemonList} />
+            <Stars stars={stars} onChange={setStars} />
+            <Pokemon className="h-32 w-32 mx-auto mb-2" name={pokemon?.name} />
+            <PokemonCombobox selectedPokemon={pokemon} onChange={setPokemon} pokemonList={pokemonList!} />
           </div>
           <div className="grow w-full rounded-lg overflow-hidden">
             <textarea
               className="outline-none bg-zinc-900/50 p-2 h-full w-full resize-none placeholder:text-violet-300"
               placeholder="Enter your description. Include things like the poke you have, strategies, etc."
               maxLength={256}
+              value={description}
+              onChange={(e) => setDescription(e.currentTarget.value)}
             />
           </div>
         </div>
-        <section className="w-full mb-4">
+        <section className="w-full mb-2">
           <hgroup className="w-full flex items-baseline gap-1 flex-wrap mb-1">
-            <h4 className="font-title font-bold text-xl tracking-wide text-zinc-300">
-              Rewards
-            </h4>
-            <span className="text-sm text-violet-300">
-              If known, otherwise leave blank.
-            </span>
+            <h4 className="font-title font-bold text-xl tracking-wide text-zinc-300">Rewards</h4>
+            <span className="text-sm text-violet-300">Click to add if known, otherwise leave blank.</span>
           </hgroup>
           <div className="flex flex-wrap max-w-full justify-start w-full rounded-3xl p-2 gap-1 bg-zinc-900/25 h-14 sm:h-20 overflow-auto mb-1">
-            {Object.entries(items).map(([name, count]) => {
-              const item = itemList.find((item) => item.name === name)!;
+            {Object.entries(rewards).map(([name, count]) => {
+              const item = itemList!.find((item) => item.name === name)!;
 
               return times(count, (i) => (
                 <Transition
@@ -117,7 +179,7 @@ export default function Host({
             })}
           </div>
           <div className="flex flex-wrap justify-between sm:justify-start p-2 gap-1">
-            {itemList.map((item) => (
+            {itemList!.map((item) => (
               <button
                 key={item.id}
                 className="relative w-10 h-10 sm:w-16 sm:h-16 rounded-3xl last-of-type:mr-auto"
@@ -126,20 +188,26 @@ export default function Host({
                 onClick={handleItemAdded}
                 value={item.name}
               >
-                <Image
-                  unoptimized
-                  fill
-                  alt={item.name}
-                  src={`/items/${item.name}.png`}
-                />
+                <Image unoptimized fill alt={item.name} src={`/items/${item.name}.png`} />
               </button>
             ))}
           </div>
         </section>
-        <button className="block w-full rounded-xl bg-violet-500 py-2 px-4 ml-auto max-w-[theme(spacing.32)]">
-          Go
-        </button>
+        <div className="flex items-baseline gap-4">
+          <label className="inline-flex items-baseline ml-auto text-zinc-300">
+            <input
+              name="repeat"
+              type="checkbox"
+              checked={repeat}
+              onChange={(e) => setRepeat(e.currentTarget.checked)}
+            />
+            <span className="ml-2">Rehosting?</span>
+          </label>
+          <button className="block w-full rounded-lg bg-violet-500 py-2 px-4 max-w-[theme(spacing.32)] font-bold font-title tracking-widest">
+            Go
+          </button>
+        </div>
       </form>
-    </main>
+    </>
   );
 }

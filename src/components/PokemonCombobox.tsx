@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import { NamedAPIResource } from "pokenode-ts";
+import { NamedAPIResource, Pokemon } from "pokenode-ts";
 import { useCallback, useMemo, useRef } from "react";
 import Select, { MenuListProps, OptionProps } from "react-select";
 import { FixedSizeList } from "react-window";
@@ -7,14 +7,20 @@ import { FixedSizeList } from "react-window";
 const HEIGHT = 32;
 
 export default function PokemonCombobox({
+  autoFocus,
   onChange,
   pokemonList,
+  selectedPokemon,
 }: {
+  autoFocus?: boolean;
   onChange(pokemon: NamedAPIResource): void;
   pokemonList: NamedAPIResource[];
+  selectedPokemon?: NamedAPIResource;
 }) {
   return (
     <Select
+      autoFocus={autoFocus}
+      defaultMenuIsOpen={autoFocus}
       className="w-full"
       classNames={{
         control: () =>
@@ -23,10 +29,9 @@ export default function PokemonCombobox({
             "text-sm"
           ),
         valueContainer: () => "rounded-lg bg-violet-800",
-        singleValue: () =>
-          "capitalize bg-violet-800 text-violet-100 rounded-lg",
+        singleValue: () => "capitalize bg-violet-800 text-violet-100 rounded-lg",
         menuList: () => "rounded-lg text-sm",
-        menu: () => "rounded-lg text-sm bg-violet-800 text-violet-100 mt-1",
+        menu: () => "rounded-lg text-sm bg-violet-800 text-violet-100 mt-1 !z-50",
         option: (props) =>
           clsx(
             "!flex items-center bg-violet-800 text-violet-100 w-full h-full px-4",
@@ -40,18 +45,14 @@ export default function PokemonCombobox({
       getOptionLabel={(option) => option.name}
       getOptionValue={(option) => option.name}
       onChange={onChange}
+      value={selectedPokemon ? { name: selectedPokemon?.name } : undefined}
       scrollToFocusedOptionOnUpdate
       unstyled
     />
   );
 }
 
-function MenuList({
-  children,
-  options,
-  maxHeight,
-  getValue,
-}: MenuListProps<OptionProps>) {
+function MenuList({ children, options, maxHeight, getValue, getStyles }: MenuListProps<OptionProps>) {
   const [value] = getValue();
   const initialOffset = options.indexOf(value) * HEIGHT;
 

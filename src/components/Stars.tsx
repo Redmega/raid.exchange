@@ -3,8 +3,14 @@ import { MouseEvent, useCallback, useState } from "react";
 
 const STARS = [1, 2, 3, 4, 5, 6, 7];
 
-export default function Stars({ onChange }: { onChange(stars: number): void }) {
-  const [value, setValue] = useState(5);
+export default function Stars({
+  onChange,
+  stars,
+}: {
+  onChange(stars: number): void;
+  stars: number;
+}) {
+  const [value, setValue] = useState(stars);
 
   const handleChangeStar = useCallback(
     (event: MouseEvent<HTMLButtonElement>) => {

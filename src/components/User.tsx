@@ -3,14 +3,16 @@ import clsx from "clsx";
 import Image from "next/image";
 
 export default function User({
+  avatar,
   avatarSize = 48,
   className,
+  username,
 }: {
+  avatar: string;
+  username: string;
   avatarSize?: number;
   className?: string;
 }) {
-  const user = useUser()!;
-
   return (
     <div className={clsx("flex items-center gap-2", className)}>
       <Image
@@ -19,9 +21,9 @@ export default function User({
         height={avatarSize}
         width={avatarSize}
         alt="Your avatar"
-        src={user.user_metadata.avatar_url}
+        src={avatar}
       />
-      <span className="text-zinc-50">{user.user_metadata.full_name}</span>
+      <span className="text-zinc-50">{username}</span>
     </div>
   );
 }
