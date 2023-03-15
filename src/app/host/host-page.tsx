@@ -142,7 +142,7 @@ export default function Host() {
         <section className="w-full mb-2">
           <hgroup className="w-full flex items-baseline gap-1 flex-wrap mb-1">
             <h4 className="font-title font-bold text-xl tracking-wide text-zinc-300">Rewards</h4>
-            <span className="text-sm text-violet-300">Click to add if known, otherwise leave blank.</span>
+            <small className="text-sm text-violet-300">Click to add if known, otherwise leave blank.</small>
           </hgroup>
           <div className="flex flex-wrap max-w-full justify-start w-full rounded-3xl p-2 gap-1 bg-zinc-900/25 h-14 sm:h-20 overflow-auto mb-1">
             {Object.entries(rewards).map(([name, count]) => {
@@ -203,7 +203,7 @@ export default function Host() {
             />
             <span className="ml-2">Rehosting?</span>
           </label>
-          <button className="block w-full rounded-lg bg-violet-500 py-2 px-4 max-w-[theme(spacing.32)] font-bold font-title tracking-widest">
+          <button className="block w-full rounded-lg bg-violet-700 py-2 px-4 max-w-[theme(spacing.32)] font-bold font-title tracking-widest">
             Go
           </button>
         </div>

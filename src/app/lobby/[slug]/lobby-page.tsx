@@ -9,11 +9,13 @@ import { Profile, Lobby as ILobby, LobbyUser } from "./page";
 import { unSlugify } from "~/utils/pokemon-client";
 import Pokemon from "~/components/Pokemon";
 import User from "~/components/User";
-import { useCallback, useContext, useEffect, useState } from "react";
+import { FocusEvent, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Transition } from "@headlessui/react";
 import PokemonCombobox from "~/components/PokemonCombobox";
 import { PokemonContext } from "~/components/PokemonProvider";
 import { NamedAPIResource } from "pokenode-ts";
+import { useRouter } from "next/navigation";
+import { useOnClickOutside } from "usehooks-ts";
 
 export default function Lobby({
   lobby,
@@ -32,6 +34,7 @@ export default function Lobby({
   const { pokemon } = useContext(PokemonContext);
 
   const [queue, setQueue] = useState(serverQueue);
+  const self = useMemo(() => queue.find((lu) => lu.user_id === user?.id), [queue, user?.id]);
 
   const handleSelectedPokemonChange = useCallback(
     (pokemon: NamedAPIResource) => {
@@ -48,6 +51,34 @@ export default function Lobby({
     [lobby.id, supabase]
   );
 
+  const [showCopied, setShowCopied] = useState(false);
+  const handleCopyLink = useCallback((event: FocusEvent<HTMLInputElement>) => {
+    event.currentTarget.select();
+    document.execCommand("copy");
+    setShowCopied(true);
+    setTimeout(() => setShowCopied(false), 500);
+    event.currentTarget.setSelectionRange(0, 0);
+    event.currentTarget.blur();
+  }, []);
+
+  const handleJoin = useCallback(() => {
+    if (!user)
+      return supabase.auth.signInWithOAuth({
+        provider: "discord",
+        options: {
+          scopes: "identify",
+          redirectTo: window.location.toString(),
+        },
+      });
+
+    supabase
+      .from("lobby_users")
+      .insert({ lobby_id: lobby.id, user_id: user.id })
+      .then((response) => {
+        if (response.error) console.error(response.error);
+      });
+  }, [lobby.id, supabase, user]);
+
   useEffect(() => {
     const channel = supabase
       .channel(`lobby:${lobby.slug}`)
@@ -61,17 +92,8 @@ export default function Lobby({
         },
         (payload) => {
           switch (payload.eventType) {
-            case "UPDATE": {
-              setQueue((users) =>
-                users.map((lu) =>
-                  lu.user_id === payload.new.user_id ? { ...lu, pokemon_name: payload.new.pokemon_name } : lu
-                )
-              );
-              break;
-            }
             case "INSERT": {
               const record = payload.new as LobbyUser;
-              // fetch profile here
               supabase
                 .from("profile")
                 .select("*")
@@ -83,9 +105,15 @@ export default function Lobby({
                 });
               break;
             }
+            case "UPDATE": {
+              const record = payload.new as LobbyUser;
+              setQueue((users) =>
+                users.map((lu) => (lu.user_id === record.user_id ? { ...lu, pokemon_name: record.pokemon_name } : lu))
+              );
+              break;
+            }
             case "DELETE": {
               const record = payload.old as Pick<LobbyUser, "user_id" | "lobby_id">;
-
               setQueue((users) => users.filter((lu) => lu.user_id !== record.user_id));
               break;
             }
@@ -101,11 +129,26 @@ export default function Lobby({
     };
   }, [lobby.id, lobby.slug, supabase]);
 
+  const chooseModalRef = useRef<HTMLElement>(null);
+  useOnClickOutside(
+    chooseModalRef,
+    useCallback(() => {
+      setPokemonPickerOpen(false);
+    }, [])
+  );
+
+  // TODO: Add controls for host to kick people
+  // TODO: Add controls for user to leave on their own
+  // TODO: Only render top 4 of queue
+  // TODO: Host can see everyone queued up
+  // TODO: If you're not in the party, you cant see the party?
+
   return (
     <>
       <AuthHeader />
       <Transition
         show={pokemonPickerOpen}
+        className="fixed inset-0 z-50 flex items-center justify-center"
         enter="transition duration-300"
         leave="transition duration-300"
         enterFrom="opacity-0"
@@ -113,37 +156,83 @@ export default function Lobby({
         leaveFrom="opacity-100"
         leaveTo="opacity-0"
       >
-        <aside className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="p-4 bg-violet-900 rounded-xl shadow-2xl max-w-xs w-full">
-            <hgroup className="mb-2">
-              <h3 className="text-lg font-title tracking-wider leading-relaxed">Select your Pokemon</h3>
-              <span className="text-sm text-violet-300">
-                Let your party know what you plan to use so you can more easily plan your strategy
-              </span>
-            </hgroup>
-            <PokemonCombobox autoFocus onChange={handleSelectedPokemonChange} pokemonList={pokemon!} />
-          </div>
+        <aside ref={chooseModalRef} className="p-4 bg-violet-900 rounded-xl shadow-2xl max-w-xs w-full">
+          <hgroup className="mb-2">
+            <h3 className="text-lg font-title tracking-wider leading-relaxed">Select your Pokemon</h3>
+            <span className="text-sm text-violet-300">
+              Let your party know what you plan to use so you can more easily plan your strategy
+            </span>
+          </hgroup>
+          <PokemonCombobox
+            autoFocus
+            onChange={handleSelectedPokemonChange}
+            pokemonList={pokemon!}
+            selectedPokemon={self?.pokemon_name ? { name: self?.pokemon_name, url: "" } : undefined}
+          />
         </aside>
       </Transition>
-      <hgroup className="mb-8 text-center">
+      <hgroup className="mb-4 text-center">
         <Pokemon className="h-32 w-32 mx-auto" name={lobby.pokemon_name} />
         <h1 className="font-title font-bold text-2xl sm:text-4xl text-zinc-100 leading-relaxed">{`${
           lobby.stars
         }★ ${unSlugify(lobby.pokemon_name ?? "random")}`}</h1>
       </hgroup>
-      <div className="bg-zinc-900/50 py-2 px-4 rounded-xl max-w-sm mb-4">
-        <p className="whitespace-pre-wrap">{lobby.description}</p>
-      </div>
-      <div className="w-full max-w-sm bg-violet-900/50 p-2 rounded-xl flex flex-col gap-1">
-        {queue.map(({ pokemon_name, profile: { avatar_url, username }, user_id }) => (
-          <div key={user_id} className="flex items-center justify-between gap-4 rounded-xl p-2 odd:bg-zinc-900/50">
-            <User avatar={avatar_url} username={username} />
-            <button disabled={user?.id !== user_id} onClick={() => setPokemonPickerOpen(true)}>
-              <Pokemon className="h-16 w-16" name={pokemon_name} />
+      <section className="max-w-sm">
+        <div className="bg-zinc-900/50 py-2 px-4 rounded-xl mb-4">
+          <p className="whitespace-pre-wrap">{lobby.description}</p>
+        </div>
+        {lobby.host_id === user?.id && (
+          <div className="flex flex-col text-center mb-4">
+            <span className="text-sm text-violet-300 mb-1">
+              Share this link to invite other trainers to join your raid!
+            </span>
+            <div className="relative">
+              <Transition
+                appear
+                show={showCopied}
+                className="absolute inset-0 flex items-center justify-center bg-green-700 rounded-lg"
+                enter="transition duration-300"
+                leave="transition duration-300"
+                enterFrom="opacity-0"
+                enterTo="opacity-100"
+                leaveFrom="opacity-100"
+                leaveTo="opacity-0"
+              >
+                Copied!
+              </Transition>
+              <input
+                className="text-center text-sm select-text w-full px-4 py-2 rounded-lg bg-zinc-900/50 focus:outline-none border-2 border-transparent focus:border-purple-900 transition"
+                readOnly
+                value={window.location.toString()}
+                onFocus={handleCopyLink}
+              />
+            </div>
+          </div>
+        )}
+        <hgroup>
+          <h2 className="text-xl font-bold font-title mb-2 text-zinc-300">Party</h2>
+        </hgroup>
+        <div className="w-full bg-violet-900/50 p-2 rounded-xl flex flex-col gap-1 mb-4">
+          {queue.map(({ pokemon_name, profile: { avatar_url, username }, user_id }) => (
+            <div key={user_id} className="flex items-center justify-between gap-4 rounded-xl p-2 odd:bg-zinc-900/50">
+              <User avatar={avatar_url} username={username} />
+              <button disabled={user?.id !== user_id} onClick={() => setPokemonPickerOpen(true)}>
+                <Pokemon className="h-16 w-16" name={pokemon_name} />
+              </button>
+            </div>
+          ))}
+        </div>
+        {!queue.find((lu) => lu.user_id === user?.id) && (
+          <div>
+            <button
+              className="block w-full rounded-lg bg-violet-700 py-2 px-4 font-bold font-title tracking-widest"
+              onClick={handleJoin}
+            >
+              Join
             </button>
           </div>
-        ))}
-      </div>
+        )}
+      </section>
     </>
   );
 }
