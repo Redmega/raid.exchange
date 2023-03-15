@@ -25,6 +25,3 @@ as permissive
 for select
 to public
 using (true);
-
-
-

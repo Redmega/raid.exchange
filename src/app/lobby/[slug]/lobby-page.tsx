@@ -1,8 +1,6 @@
 "use client";
 
 import { useUser } from "@supabase/auth-helpers-react";
-import Image from "next/image";
-import Logo from "$/logo.png";
 import AuthHeader from "~/components/AuthHeader";
 import { useSupabaseClient } from "~/utils/supabase-client";
 import { Profile, Lobby as ILobby, LobbyUser } from "./page";
@@ -14,7 +12,7 @@ import { Transition } from "@headlessui/react";
 import PokemonCombobox from "~/components/PokemonCombobox";
 import { PokemonContext } from "~/components/PokemonProvider";
 import { NamedAPIResource } from "pokenode-ts";
-import { useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useOnClickOutside } from "usehooks-ts";
 
 export default function Lobby({
@@ -26,15 +24,25 @@ export default function Lobby({
   host: Profile;
   queue: LobbyUser[];
 }) {
+  const url = location.origin + usePathname();
   const supabase = useSupabaseClient();
   const user = useUser();
 
-  const [pokemonPickerOpen, setPokemonPickerOpen] = useState(false);
+  const [showPickPokemon, setShowPickPokemon] = useState(false);
 
-  const { pokemon } = useContext(PokemonContext);
+  const { pokemon: pokemonList } = useContext(PokemonContext);
+
+  const [code, setCode] = useState(lobby.code ?? "");
 
   const [queue, setQueue] = useState(serverQueue);
   const self = useMemo(() => queue.find((lu) => lu.user_id === user?.id), [queue, user?.id]);
+  const party = useMemo(() => queue.slice(0, 4), [queue]);
+
+  const isHost = user?.id === lobby.host_id;
+
+  const handleShareCode = useCallback(() => {
+    supabase.from("lobby").update({ code: code.toUpperCase() }).eq("id", lobby.id);
+  }, [code, lobby.id, supabase]);
 
   const handleSelectedPokemonChange = useCallback(
     (pokemon: NamedAPIResource) => {
@@ -45,7 +53,7 @@ export default function Lobby({
         })
         .eq("lobby_id", lobby.id)
         .then((response) => {
-          if (!response.error) setPokemonPickerOpen(false);
+          if (!response.error) setShowPickPokemon(false);
         });
     },
     [lobby.id, supabase]
@@ -133,7 +141,7 @@ export default function Lobby({
   useOnClickOutside(
     chooseModalRef,
     useCallback(() => {
-      setPokemonPickerOpen(false);
+      setShowPickPokemon(false);
     }, [])
   );
 
@@ -147,7 +155,7 @@ export default function Lobby({
     <>
       <AuthHeader />
       <Transition
-        show={pokemonPickerOpen}
+        show={showPickPokemon}
         className="fixed inset-0 z-50 flex items-center justify-center"
         enter="transition duration-300"
         leave="transition duration-300"
@@ -166,7 +174,7 @@ export default function Lobby({
           <PokemonCombobox
             autoFocus
             onChange={handleSelectedPokemonChange}
-            pokemonList={pokemon!}
+            pokemonList={pokemonList!}
             selectedPokemon={self?.pokemon_name ? { name: self?.pokemon_name, url: "" } : undefined}
           />
         </aside>
@@ -181,7 +189,7 @@ export default function Lobby({
         <div className="bg-zinc-900/50 py-2 px-4 rounded-xl mb-4">
           <p className="whitespace-pre-wrap">{lobby.description}</p>
         </div>
-        {lobby.host_id === user?.id && (
+        {isHost && (
           <div className="flex flex-col text-center mb-4">
             <span className="text-sm text-violet-300 mb-1">
               Share this link to invite other trainers to join your raid!
@@ -203,7 +211,7 @@ export default function Lobby({
               <input
                 className="text-center text-sm select-text w-full px-4 py-2 rounded-lg bg-zinc-900/50 focus:outline-none border-2 border-transparent focus:border-purple-900 transition"
                 readOnly
-                value={window.location.toString()}
+                value={url}
                 onFocus={handleCopyLink}
               />
             </div>
@@ -213,10 +221,10 @@ export default function Lobby({
           <h2 className="text-xl font-bold font-title mb-2 text-zinc-300">Party</h2>
         </hgroup>
         <div className="w-full bg-violet-900/50 p-2 rounded-xl flex flex-col gap-1 mb-4">
-          {queue.map(({ pokemon_name, profile: { avatar_url, username }, user_id }) => (
+          {party.map(({ pokemon_name, profile: { avatar_url, username }, user_id }) => (
             <div key={user_id} className="flex items-center justify-between gap-4 rounded-xl p-2 odd:bg-zinc-900/50">
               <User avatar={avatar_url} username={username} />
-              <button disabled={user?.id !== user_id} onClick={() => setPokemonPickerOpen(true)}>
+              <button disabled={user?.id !== user_id} onClick={() => setShowPickPokemon(true)}>
                 <Pokemon className="h-16 w-16" name={pokemon_name} />
               </button>
             </div>
@@ -231,6 +239,35 @@ export default function Lobby({
               Join
             </button>
           </div>
+        )}
+        {isHost && (
+          <>
+            <hgroup className="w-full flex items-baseline gap-1 flex-wrap mb-2">
+              <h2 className="font-title font-bold text-xl tracking-wide text-zinc-300">Code</h2>
+              <small className="text-sm text-violet-300">
+                When you&apos;re ready, host the raid and fill in the code below
+              </small>
+            </hgroup>
+            <div className="flex gap-2">
+              <label className="shrink-0">
+                <input
+                  className="text-center tracking-widest uppercase text-xl max-w-[calc(6ch+theme(spacing.24))] select-text w-full px-4 py-1 rounded-lg bg-zinc-900/50 focus:outline-none border-2 border-transparent focus:border-purple-900 transition"
+                  name="code"
+                  value={code}
+                  placeholder="XXXXXX"
+                  maxLength={6}
+                  onChange={(e) => setCode(e.currentTarget.value)}
+                />
+              </label>
+              <button
+                className="w-full rounded-lg bg-violet-700 py-2 px-4 font-bold font-title tracking-widest disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={code.length < 6}
+                onClick={handleShareCode}
+              >
+                Share
+              </button>
+            </div>
+          </>
         )}
       </section>
     </>
