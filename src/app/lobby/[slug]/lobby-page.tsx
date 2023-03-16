@@ -1,7 +1,6 @@
 "use client";
 
 import { useUser } from "@supabase/auth-helpers-react";
-import AuthHeader from "~/components/AuthHeader";
 import { useSupabaseClient } from "~/utils/supabase-client";
 import { Profile, Lobby as ILobby, LobbyUser } from "./page";
 import { unSlugify } from "~/utils/pokemon-client";
@@ -14,9 +13,12 @@ import { PokemonContext } from "~/components/PokemonProvider";
 import { NamedAPIResource } from "pokenode-ts";
 import { usePathname } from "next/navigation";
 import { useOnClickOutside } from "usehooks-ts";
+import { times } from "lodash-es";
+import Image from "next/image";
+import clsx from "clsx";
 
 export default function Lobby({
-  lobby,
+  lobby: serverLobby,
   host,
   queue: serverQueue,
 }: {
@@ -24,13 +26,15 @@ export default function Lobby({
   host: Profile;
   queue: LobbyUser[];
 }) {
-  const url = location.origin + usePathname();
+  const url = window.location.origin + usePathname();
   const supabase = useSupabaseClient();
   const user = useUser();
 
   const [showPickPokemon, setShowPickPokemon] = useState(false);
 
   const { pokemon: pokemonList } = useContext(PokemonContext);
+
+  const [lobby, setLobby] = useState(serverLobby);
 
   const [code, setCode] = useState(lobby.code ?? "");
 
@@ -39,22 +43,24 @@ export default function Lobby({
   const party = useMemo(() => queue.slice(0, 4), [queue]);
 
   const isHost = user?.id === lobby.host_id;
+  const isMember = !!self;
 
-  const handleShareCode = useCallback(() => {
-    supabase.from("lobby").update({ code: code.toUpperCase() }).eq("id", lobby.id);
+  const handleShareCode = useCallback(async () => {
+    const response = await supabase.from("lobby").update({ code: code.toUpperCase() }).eq("id", lobby.id);
+    if (response.error) console.error(response.error);
   }, [code, lobby.id, supabase]);
 
   const handleSelectedPokemonChange = useCallback(
-    (pokemon: NamedAPIResource) => {
-      supabase
+    async (pokemon: NamedAPIResource) => {
+      const response = await supabase
         .from("lobby_users")
         .update({
           pokemon_name: pokemon.name,
         })
-        .eq("lobby_id", lobby.id)
-        .then((response) => {
-          if (!response.error) setShowPickPokemon(false);
-        });
+        .eq("lobby_id", lobby.id);
+
+      if (!response.error) setShowPickPokemon(false);
+      else console.error(response.error);
     },
     [lobby.id, supabase]
   );
@@ -69,24 +75,29 @@ export default function Lobby({
     event.currentTarget.blur();
   }, []);
 
-  const handleJoin = useCallback(() => {
+  const handleJoin = useCallback(async () => {
     if (!user)
       return supabase.auth.signInWithOAuth({
         provider: "discord",
         options: {
           scopes: "identify",
-          redirectTo: window.location.toString(),
+          redirectTo: url,
         },
       });
 
-    supabase
-      .from("lobby_users")
-      .insert({ lobby_id: lobby.id, user_id: user.id })
-      .then((response) => {
-        if (response.error) console.error(response.error);
-      });
+    const response = await supabase.from("lobby_users").insert({ lobby_id: lobby.id, user_id: user.id });
+    if (response.error) console.error(response.error);
+  }, [lobby.id, supabase, url, user]);
+
+  const handleLeave = useCallback(async () => {
+    if (!user) return;
+    const response = await supabase.from("lobby_users").delete().eq("lobby_id", lobby.id).eq("user_id", user.id);
+    if (response.error) console.error(response.error);
   }, [lobby.id, supabase, user]);
 
+  /**
+   * Live updates
+   */
   useEffect(() => {
     const channel = supabase
       .channel(`lobby:${lobby.slug}`)
@@ -128,6 +139,19 @@ export default function Lobby({
           }
         }
       )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "lobby",
+          filter: `id=eq.${lobby.id}`,
+        },
+        (payload) => {
+          console.log("lobby updated", payload);
+          setLobby(payload.new as ILobby);
+        }
+      )
       .subscribe((status, error) => {
         console.log({ status, error });
       });
@@ -153,10 +177,9 @@ export default function Lobby({
 
   return (
     <>
-      <AuthHeader />
       <Transition
         show={showPickPokemon}
-        className="fixed inset-0 z-50 flex items-center justify-center"
+        className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-900/75"
         enter="transition duration-300"
         leave="transition duration-300"
         enterFrom="opacity-0"
@@ -164,7 +187,7 @@ export default function Lobby({
         leaveFrom="opacity-100"
         leaveTo="opacity-0"
       >
-        <aside ref={chooseModalRef} className="p-4 bg-violet-900 rounded-xl shadow-2xl max-w-xs w-full">
+        <aside ref={chooseModalRef} className="p-4 md:p-8 bg-violet-900 rounded-xl shadow-2xl max-w-sm w-full">
           <hgroup className="mb-2">
             <h3 className="text-lg font-title tracking-wider leading-relaxed">Select your Pokemon</h3>
             <span className="text-sm text-violet-300">
@@ -217,8 +240,25 @@ export default function Lobby({
             </div>
           </div>
         )}
+        {lobby.rewards && (
+          <>
+            <hgroup className="w-full flex items-baseline gap-1 flex-wrap mb-2">
+              <h2 className="font-title font-bold text-xl tracking-wide text-zinc-300">Rewards</h2>
+              <small className="text-sm text-violet-300">Make sure to eat your sando&apos;s!</small>
+            </hgroup>
+            <div className="flex items-center gap-1 mb-2">
+              {Object.entries(lobby.rewards).map(([name, count]) => {
+                return times(count, (i) => (
+                  <div key={"" + name + i} className="relative h-12 w-12" title={unSlugify(name)}>
+                    <Image unoptimized fill alt={name} src={`/items/${name}.png`} />
+                  </div>
+                ));
+              })}
+            </div>
+          </>
+        )}
         <hgroup>
-          <h2 className="text-xl font-bold font-title mb-2 text-zinc-300">Party</h2>
+          <h2 className="font-title font-bold text-xl tracking-wide text-zinc-300 mb-2">Party</h2>
         </hgroup>
         <div className="w-full bg-violet-900/50 p-2 rounded-xl flex flex-col gap-1 mb-4">
           {party.map(({ pokemon_name, profile: { avatar_url, username }, user_id }) => (
@@ -235,8 +275,11 @@ export default function Lobby({
             <button
               className="block w-full rounded-lg bg-violet-700 py-2 px-4 font-bold font-title tracking-widest"
               onClick={handleJoin}
+              disabled={!lobby.repeat && party.length === 4}
             >
-              Join
+              {party.length < 4 && "Join Party"}
+              {lobby.repeat && party.length === 4 && "Join Queue"}
+              {!lobby.repeat && party.length === 4 && "Lobby Full"}
             </button>
           </div>
         )}
@@ -268,6 +311,18 @@ export default function Lobby({
               </button>
             </div>
           </>
+        )}
+        {!isHost && isMember && (
+          <button
+            className={clsx(
+              "w-full rounded-lg py-2 px-4 font-bold font-title tracking-widest disabled:opacity-50 disabled:cursor-not-allowed",
+              "transition-colors bg-zinc-700/25 border-2 border-zinc-500/50 text-zinc-500",
+              "hover:bg-zinc-700/50 hover:border-red-500/50 hover:text-red-500"
+            )}
+            onClick={handleLeave}
+          >
+            Leave
+          </button>
         )}
       </section>
     </>

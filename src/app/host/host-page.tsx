@@ -6,18 +6,20 @@ import { NamedAPIResource } from "pokenode-ts";
 import { PokemonContext } from "~/components/PokemonProvider";
 import { Transition } from "@headlessui/react";
 import { times } from "lodash-es";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useSupabaseClient } from "~/utils/supabase-client";
 import { useUser } from "@supabase/auth-helpers-react";
-import AuthHeader from "~/components/AuthHeader";
 import Image from "next/image";
 import Logo from "$/logo.png";
+import LoadingIcon from "$/load.svg";
 import Pokemon from "~/components/Pokemon";
 import PokemonCombobox from "~/components/PokemonCombobox";
 import Stars from "~/components/Stars";
 import XMarkIcon from "@heroicons/react/24/solid/XMarkIcon";
 
 export default function Host() {
+  const url = window.location.origin + usePathname();
+
   const { rewards: itemList, pokemon: pokemonList } = useContext(PokemonContext);
   const supabase = useSupabaseClient();
   const user = useUser();
@@ -42,8 +44,10 @@ export default function Host() {
     setRewards((items) => ({ ...items, [name]: items[name] - 1 }));
   }, []);
 
+  const [loading, setLoading] = useState(false);
   const handleCreateLobby = useCallback(
     async (event: FormEvent<HTMLFormElement>) => {
+      setLoading(true);
       event.preventDefault();
       // Save our data so we can check it when we come back
       window.localStorage.setItem(
@@ -56,19 +60,16 @@ export default function Host() {
           description,
         })
       );
-      if (!user) {
+      if (!user)
         return supabase.auth.signInWithOAuth({
           provider: "discord",
           options: {
             scopes: "identify",
+            redirectTo: url,
           },
         });
-      }
 
       // Generate a random slug firmness-softness-flavor-berries
-
-      // let slug = generateRandomSlug();
-      // test repeat slugs
       let slug: string | undefined;
       while (slug === undefined) {
         slug = generateRandomSlug();
@@ -77,7 +78,7 @@ export default function Host() {
         if (response.count === 1) slug = undefined;
       }
 
-      supabase
+      const response = await supabase
         .from("lobby")
         .insert({
           slug,
@@ -89,35 +90,27 @@ export default function Host() {
           host_id: user.id,
         })
         .select()
-        .single()
-        .then(
-          async (response) => {
-            if (response.error) {
-              console.error(response.error);
-              return;
-            }
+        .single();
 
-            const lobby = response.data;
+      if (response.error) {
+        console.error(response.error);
+        setLoading(false);
+        return;
+      }
 
-            // Add user to queue
-            await supabase.from("lobby_users").insert({
-              lobby_id: response.data.id,
-              user_id: user.id,
-            });
+      // Add user to queue
+      await supabase.from("lobby_users").insert({
+        lobby_id: response.data.id,
+        user_id: user.id,
+      });
 
-            return router.push(`/lobby/${slug}`);
-          },
-          (reason) => {
-            console.log("failed", reason);
-          }
-        );
+      return router.push(`/lobby/${slug}`);
     },
-    [description, pokemon, repeat, rewards, router, stars, supabase, user]
+    [description, pokemon, repeat, rewards, router, stars, supabase, url, user]
   );
 
   return (
     <>
-      <AuthHeader />
       <hgroup className="mb-8 text-center">
         <Image className="h-24 w-24 mx-auto" alt="Raid.Exchange Logo" src={Logo} />
         <h1 className="font-title font-bold text-2xl sm:text-4xl text-zinc-100 leading-relaxed">Create a Lobby</h1>
@@ -193,8 +186,8 @@ export default function Host() {
             ))}
           </div>
         </section>
-        <div className="flex items-baseline gap-4">
-          <label className="inline-flex items-baseline ml-auto text-zinc-300">
+        <div className="flex items-center gap-4">
+          <label className="inline-flex items-center ml-auto text-zinc-300">
             <input
               name="repeat"
               type="checkbox"
@@ -203,8 +196,11 @@ export default function Host() {
             />
             <span className="ml-2">Rehosting?</span>
           </label>
-          <button className="block w-full rounded-lg bg-violet-700 py-2 px-4 max-w-[theme(spacing.32)] font-bold font-title tracking-widest">
-            Go
+          <button
+            className="flex items-center justify-center w-full rounded-lg bg-violet-700 py-2 px-4 max-w-[theme(spacing.32)] font-bold font-title tracking-widest"
+            disabled={loading}
+          >
+            {loading ? <LoadingIcon className="text-violet-300/25 animate-spin h-5 w-5 m-0.5" /> : "Go"}
           </button>
         </div>
       </form>

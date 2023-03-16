@@ -8,3 +8,4 @@ commit;
 
 -- add a table to the publication
 alter publication supabase_realtime add table lobby_users;
+alter publication supabase_realtime add table lobby;

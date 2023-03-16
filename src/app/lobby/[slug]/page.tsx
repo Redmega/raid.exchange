@@ -1,7 +1,7 @@
 import "server-only";
 import { createClient } from "~/utils/supabase-server";
 import LobbyPage from "./lobby-page";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { Database } from "~/lib/database.types";
 import { cache } from "react";
 import { omit } from "lodash-es";
@@ -24,7 +24,7 @@ const getLobby = cache(async (slug: string) => {
     .limit(1)
     .maybeSingle();
 
-  if (!response.data) return notFound();
+  if (!response.data) return redirect("/");
 
   const profile = response.data.profile as Profile;
   const lobby_users = response.data.lobby_users as LobbyUser[];
