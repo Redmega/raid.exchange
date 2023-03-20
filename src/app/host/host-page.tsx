@@ -28,7 +28,7 @@ export default function Host() {
   const savedData = window.localStorage.getItem("RE_SAVED_LOBBY");
   const parsedData = savedData ? JSON.parse(savedData) : undefined;
 
-  const [repeat, setRepeat] = useState(parsedData?.repeat ?? false);
+  const [repeat, setRepeat] = useState(true);
   const [stars, setStars] = useState(parsedData?.stars ?? 5);
   const [pokemon, setPokemon] = useState<NamedAPIResource>(parsedData?.pokemon ?? undefined);
   const [description, setDescription] = useState(parsedData?.description ?? "");
@@ -187,15 +187,6 @@ export default function Host() {
           </div>
         </section>
         <div className="flex items-center gap-4">
-          <label className="inline-flex items-center ml-auto text-zinc-300">
-            <input
-              name="repeat"
-              type="checkbox"
-              checked={repeat}
-              onChange={(e) => setRepeat(e.currentTarget.checked)}
-            />
-            <span className="ml-2">Rehosting?</span>
-          </label>
           <button
             className="flex items-center justify-center w-full rounded-lg bg-violet-700 py-2 px-4 max-w-[theme(spacing.32)] font-bold font-title tracking-widest"
             disabled={loading}

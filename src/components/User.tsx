@@ -6,15 +6,17 @@ export default function User({
   avatar,
   avatarSize = 48,
   className,
+  onlyAvatar,
   username,
 }: {
   avatar: string;
-  username: string;
   avatarSize?: number;
   className?: string;
+  onlyAvatar?: boolean;
+  username: string;
 }) {
   return (
-    <div className={clsx("flex items-center gap-2", className)}>
+    <div className={clsx("flex items-center gap-2", className)} title={username}>
       <Image
         className="rounded-full"
         unoptimized
@@ -23,7 +25,7 @@ export default function User({
         alt="Your avatar"
         src={avatar}
       />
-      <span className="text-zinc-50">{username}</span>
+      {!onlyAvatar && <span className="text-zinc-50">{username}</span>}
     </div>
   );
 }

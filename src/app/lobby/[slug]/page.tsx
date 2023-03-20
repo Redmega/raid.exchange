@@ -5,8 +5,9 @@ import { notFound, redirect } from "next/navigation";
 import { Database } from "~/lib/database.types";
 import { cache } from "react";
 import { omit } from "lodash-es";
-import { unSlugify } from "~/utils/pokemon-client";
+import { getPokemon, unSlugify } from "~/utils/pokemon-client";
 import { Metadata } from "next";
+import Clefairy from "$/clefairy.png";
 
 export type Lobby = Database["public"]["Tables"]["lobby"]["Row"];
 export type Profile = Database["public"]["Tables"]["profile"]["Row"];
@@ -21,6 +22,7 @@ const getLobby = cache(async (slug: string) => {
     .from("lobby")
     .select(`*, profile:host_id (*), lobby_users (*, profile:user_id (*))`)
     .eq("slug", slug)
+    .order("created_at", { ascending: true, foreignTable: "lobby_users" })
     .limit(1)
     .maybeSingle();
 
@@ -35,9 +37,25 @@ const getLobby = cache(async (slug: string) => {
 
 export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
   const { lobby, profile } = await getLobby(params.slug);
+
+  const pokemon = lobby.pokemon_name ? await getPokemon(lobby.pokemon_name) : undefined;
+
+  const title = `${lobby.stars}★ ${unSlugify(lobby.pokemon_name ?? "random")} raid, hosted by ${profile.username}`;
+  const rewards = lobby.rewards
+    ? Object.entries(lobby.rewards)
+        .filter(([name, value]) => value > 0)
+        .map(([name, value]) => `${value}x ${unSlugify(name)}`)
+        .join(", ") + ".\n "
+    : "";
+  const description = rewards + lobby.description || "Join now!";
   return {
-    title: `${lobby.stars}★ ${unSlugify(lobby.pokemon_name ?? "random")} raid, hosted by ${profile.username}`,
-    description: lobby.description || "Join now!",
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      images: pokemon?.sprites.other?.["official-artwork"].front_default ?? Clefairy.src,
+    },
   };
 }
 

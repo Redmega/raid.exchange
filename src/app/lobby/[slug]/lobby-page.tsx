@@ -17,9 +17,36 @@ import { times } from "lodash-es";
 import Image from "next/image";
 import clsx from "clsx";
 
+type RaidPhase = "waiting" | "started";
+
+// const TEST_USERS: LobbyUser[] = [
+//   {
+//     user_id: "a",
+//     pokemon_name: "umbreon",
+//     profile: { avatar_url: "https://cdn.discordapp.com/embed/avatars/1.png", username: "Some User", user_id: "a" },
+//   },
+//   {
+//     user_id: "b",
+//     pokemon_name: "vaporeon",
+//     profile: { avatar_url: "https://cdn.discordapp.com/embed/avatars/1.png", username: "Another User", user_id: "b" },
+//   },
+//   {
+//     user_id: "c",
+//     profile: { avatar_url: "https://cdn.discordapp.com/embed/avatars/1.png", username: "A Queue User", user_id: "c" },
+//   },
+//   {
+//     user_id: "d",
+//     profile: {
+//       avatar_url: "https://cdn.discordapp.com/embed/avatars/1.png",
+//       username: "Another Queue User",
+//       user_id: "d",
+//     },
+//   },
+// ];
+
 export default function Lobby({
-  lobby: serverLobby,
   host,
+  lobby: serverLobby,
   queue: serverQueue,
 }: {
   lobby: ILobby;
@@ -40,14 +67,21 @@ export default function Lobby({
 
   const [queue, setQueue] = useState(serverQueue);
   const self = useMemo(() => queue.find((lu) => lu.user_id === user?.id), [queue, user?.id]);
-  const party = useMemo(() => queue.slice(0, 4), [queue]);
+  const [party, waiting] = useMemo(() => [queue.slice(0, 4), queue.slice(4)], [queue]);
 
-  const isHost = user?.id === lobby.host_id;
+  console.log({ party, waiting });
+
+  const isHost = user?.id === host.user_id;
   const isMember = !!self;
 
-  const handleShareCode = useCallback(async () => {
+  const [phase, setPhase] = useState<RaidPhase>("waiting");
+
+  const handleStartRaid = useCallback(async () => {
     const response = await supabase.from("lobby").update({ code: code.toUpperCase() }).eq("id", lobby.id);
     if (response.error) console.error(response.error);
+    else {
+      setPhase("started");
+    }
   }, [code, lobby.id, supabase]);
 
   const handleSelectedPokemonChange = useCallback(
@@ -98,9 +132,17 @@ export default function Lobby({
   /**
    * Live updates
    */
+  const [presence, setPresence] = useState<Record<string, any>>({});
+  const channel = useRef<ReturnType<typeof supabase.channel>>();
   useEffect(() => {
-    const channel = supabase
-      .channel(`lobby:${lobby.slug}`)
+    if (!user?.id) return;
+
+    let heartbeat: number;
+    channel.current = supabase
+      .channel(`lobby:${lobby.slug}`, { config: { presence: { key: user.id } } })
+      .on("presence", { event: "sync" }, () => {
+        setPresence({ ...channel.current!.presenceState() });
+      })
       .on(
         "postgres_changes",
         {
@@ -148,18 +190,29 @@ export default function Lobby({
           filter: `id=eq.${lobby.id}`,
         },
         (payload) => {
-          console.log("lobby updated", payload);
+          const record = payload.new as ILobby;
+          const old = payload.old as ILobby;
+
+          if (record.code && !old.code && phase === "waiting") setPhase("started");
           setLobby(payload.new as ILobby);
         }
       )
-      .subscribe((status, error) => {
-        console.log({ status, error });
+      .subscribe(async (status, error) => {
+        if (status === "SUBSCRIBED") {
+          await channel.current!.track({
+            last_online: new Date().toISOString(),
+          });
+        }
       });
 
     return () => {
-      supabase.removeChannel(channel);
+      window.clearInterval(heartbeat);
+
+      if (channel.current) {
+        Promise.all([channel.current.untrack(), supabase.removeChannel(channel.current)]);
+      }
     };
-  }, [lobby.id, lobby.slug, supabase]);
+  }, [lobby.id, lobby.slug, phase, supabase, user?.id]);
 
   const chooseModalRef = useRef<HTMLElement>(null);
   useOnClickOutside(
@@ -170,10 +223,7 @@ export default function Lobby({
   );
 
   // TODO: Add controls for host to kick people
-  // TODO: Add controls for user to leave on their own
-  // TODO: Only render top 4 of queue
   // TODO: Host can see everyone queued up
-  // TODO: If you're not in the party, you cant see the party?
 
   return (
     <>
@@ -261,14 +311,43 @@ export default function Lobby({
           <h2 className="font-title font-bold text-xl tracking-wide text-zinc-300 mb-2">Party</h2>
         </hgroup>
         <div className="w-full bg-violet-900/50 p-2 rounded-xl flex flex-col gap-1 mb-4">
-          {party.map(({ pokemon_name, profile: { avatar_url, username }, user_id }) => (
-            <div key={user_id} className="flex items-center justify-between gap-4 rounded-xl p-2 odd:bg-zinc-900/50">
-              <User avatar={avatar_url} username={username} />
-              <button disabled={user?.id !== user_id} onClick={() => setShowPickPokemon(true)}>
-                <Pokemon className="h-16 w-16" name={pokemon_name} />
-              </button>
-            </div>
-          ))}
+          {party.map(({ user_id, pokemon_name, profile: { avatar_url, username } }) => {
+            const presenceState = presence[user_id]?.[0];
+            return (
+              <div
+                key={user_id}
+                className="relative flex items-center justify-between gap-4 rounded-xl p-2 odd:bg-zinc-900/50"
+              >
+                <div
+                  className={clsx(
+                    "absolute top-2 left-2 w-2 h-2 transition-colors rounded-full",
+                    presenceState && "bg-green-500"
+                  )}
+                />
+                <User avatar={avatar_url} username={username} />
+                <button disabled={user?.id !== user_id} onClick={() => setShowPickPokemon(true)}>
+                  <Pokemon className="h-16 w-16" name={pokemon_name} />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+        <div>
+          {waiting.length > 0 && (
+            <>
+              <hgroup>
+                <h2 className="font-title font-bold text-xl tracking-wide text-zinc-300 mb-2">Queue</h2>
+              </hgroup>
+              <div className="relative flex items-center rounded-xl p-2 bg-zinc-900/50 overflow-hidden pl-6 mb-4">
+                {waiting.slice(0, 10).map(({ user_id, profile: { avatar_url, username } }) => (
+                  <User className="-ml-4" key={user_id} avatar={avatar_url} username={username} onlyAvatar />
+                ))}
+                {waiting.length > 10 && (
+                  <p className="ml-2 -mr-6 text-xs text-violet-300">And {waiting.length - 10} more...</p>
+                )}
+              </div>
+            </>
+          )}
         </div>
         {!queue.find((lu) => lu.user_id === user?.id) && (
           <div>
@@ -279,7 +358,7 @@ export default function Lobby({
             >
               {party.length < 4 && "Join Party"}
               {lobby.repeat && party.length === 4 && "Join Queue"}
-              {!lobby.repeat && party.length === 4 && "Lobby Full"}
+              {!lobby.repeat && party.length === 4 && "Full"}
             </button>
           </div>
         )}
@@ -303,11 +382,11 @@ export default function Lobby({
                 />
               </label>
               <button
-                className="w-full rounded-lg bg-violet-700 py-2 px-4 font-bold font-title tracking-widest disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full rounded-lg bg-violet-700 py-2 px-4 font-bold font-title tracking-widest disabled:opacity-25 disabled:cursor-not-allowed"
                 disabled={code.length < 6}
-                onClick={handleShareCode}
+                onClick={handleStartRaid}
               >
-                Share
+                Start
               </button>
             </div>
           </>

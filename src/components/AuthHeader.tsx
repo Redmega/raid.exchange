@@ -1,7 +1,7 @@
 "use client";
 
-import { useUser } from "@supabase/auth-helpers-react";
-import { useCallback } from "react";
+import { useSession, useSessionContext, useUser } from "@supabase/auth-helpers-react";
+import { useCallback, useEffect } from "react";
 import { useSupabaseClient } from "~/utils/supabase-client";
 import User from "./User";
 import DiscordLogo from "$/discord-mark-blue.svg";
@@ -23,6 +23,14 @@ export default function AuthHeader() {
         scopes: "identify",
         redirectTo: url,
       },
+    });
+  }, [supabase.auth, url]);
+
+  useEffect(() => {
+    supabase.auth.refreshSession().then((response) => {
+      if (response.error) {
+        if (response.error.status === 400) return supabase.auth.signOut();
+      }
     });
   }, [supabase.auth, url]);
 

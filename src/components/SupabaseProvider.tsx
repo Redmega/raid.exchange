@@ -4,11 +4,7 @@ import { createBrowserSupabaseClient } from "@supabase/auth-helpers-nextjs";
 import { SessionContextProvider } from "@supabase/auth-helpers-react";
 import { ReactNode, useEffect, useState } from "react";
 
-export default function SupabaseProvider({
-  children,
-}: {
-  children: ReactNode;
-}) {
+export default function SupabaseProvider({ children }: { children: ReactNode }) {
   const [supabaseClient] = useState(() => createBrowserSupabaseClient());
 
   useEffect(() => {
@@ -19,9 +15,5 @@ export default function SupabaseProvider({
     return () => subscription.unsubscribe();
   }, [supabaseClient.auth]);
 
-  return (
-    <SessionContextProvider supabaseClient={supabaseClient}>
-      {children}
-    </SessionContextProvider>
-  );
+  return <SessionContextProvider supabaseClient={supabaseClient}>{children}</SessionContextProvider>;
 }
