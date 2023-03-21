@@ -25,7 +25,7 @@ export default function PokemonCombobox({
       classNames={{
         control: () =>
           clsx(
-            "border-2 border-transparent focus-within:border-violet-500 bg-violet-800 text-violet-100 rounded-lg px-4",
+            "border border-transparent focus-within:border-violet-500 bg-violet-800 text-violet-100 rounded-lg px-4",
             "text-sm"
           ),
         valueContainer: () => "rounded-lg bg-violet-800",

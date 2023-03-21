@@ -1,4 +1,3 @@
-import { times } from "lodash-es";
 import {
   PokemonClient,
   ItemClient,

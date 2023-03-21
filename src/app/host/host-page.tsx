@@ -115,7 +115,7 @@ export default function Host() {
         <Image className="h-24 w-24 mx-auto" alt="Raid.Exchange Logo" src={Logo} />
         <h1 className="font-title font-bold text-2xl sm:text-4xl text-zinc-100 leading-relaxed">Create a Lobby</h1>
       </hgroup>
-      <form className="w-full max-w-screen-sm rounded-xl bg-violet-900 p-2" onSubmit={handleCreateLobby}>
+      <form className="mx-auto w-full max-w-screen-sm rounded-xl bg-violet-900 p-2" onSubmit={handleCreateLobby}>
         <div className="flex flex-col items-center sm:items-stretch sm:flex-row gap-2 mb-4">
           <div className="w-full max-w-[theme(spacing.56)]">
             <Stars stars={stars} onChange={setStars} />

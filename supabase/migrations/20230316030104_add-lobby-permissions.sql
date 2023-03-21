@@ -6,6 +6,13 @@ to authenticated
 using ((auth.uid() = host_id))
 with check ((auth.uid() = host_id));
 
+create policy "Hosts can delete their lobby"
+on "public"."lobby"
+as permissive
+for delete
+to authenticated
+using ((auth.uid() = host_id));
+
 create policy "Everyone can read lobby users"
 on "public"."lobby_users"
 as permissive
@@ -25,9 +32,7 @@ on "public"."lobby_users"
 as permissive
 for delete
 to authenticated
-using ((auth.uid() = ( SELECT lobby.host_id
-   FROM lobby
-  WHERE (lobby.id = lobby_users.lobby_id))));
+using ((auth.uid() = (SELECT lobby.host_id FROM lobby WHERE (lobby.id = lobby_users.lobby_id))));
 
 create policy "Users can delete themselves"
 on "public"."lobby_users"
@@ -35,7 +40,6 @@ as permissive
 for delete
 to authenticated
 using ((auth.uid() = user_id));
-
 
 create policy "Users can update themselves"
 on "public"."lobby_users"

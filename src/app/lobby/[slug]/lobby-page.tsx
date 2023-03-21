@@ -6,43 +6,54 @@ import { Profile, Lobby as ILobby, LobbyUser } from "./page";
 import { unSlugify } from "~/utils/pokemon-client";
 import Pokemon from "~/components/Pokemon";
 import User from "~/components/User";
-import { FocusEvent, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import {
+  FocusEvent,
+  MouseEvent,
+  SyntheticEvent,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Transition } from "@headlessui/react";
 import PokemonCombobox from "~/components/PokemonCombobox";
 import { PokemonContext } from "~/components/PokemonProvider";
 import { NamedAPIResource } from "pokenode-ts";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useOnClickOutside } from "usehooks-ts";
-import { times } from "lodash-es";
+import { omit, times } from "lodash-es";
 import Image from "next/image";
 import clsx from "clsx";
+import { CheckIcon, XMarkIcon } from "@heroicons/react/24/solid";
 
 type RaidPhase = "waiting" | "started";
 
-// const TEST_USERS: LobbyUser[] = [
-//   {
-//     user_id: "a",
-//     pokemon_name: "umbreon",
-//     profile: { avatar_url: "https://cdn.discordapp.com/embed/avatars/1.png", username: "Some User", user_id: "a" },
-//   },
-//   {
-//     user_id: "b",
-//     pokemon_name: "vaporeon",
-//     profile: { avatar_url: "https://cdn.discordapp.com/embed/avatars/1.png", username: "Another User", user_id: "b" },
-//   },
-//   {
-//     user_id: "c",
-//     profile: { avatar_url: "https://cdn.discordapp.com/embed/avatars/1.png", username: "A Queue User", user_id: "c" },
-//   },
-//   {
-//     user_id: "d",
-//     profile: {
-//       avatar_url: "https://cdn.discordapp.com/embed/avatars/1.png",
-//       username: "Another Queue User",
-//       user_id: "d",
-//     },
-//   },
-// ];
+const TEST_USERS: LobbyUser[] = [
+  {
+    user_id: "a",
+    pokemon_name: "umbreon",
+    profile: { avatar_url: "https://cdn.discordapp.com/embed/avatars/1.png", username: "Some User", user_id: "a" },
+  },
+  {
+    user_id: "b",
+    pokemon_name: "vaporeon",
+    profile: { avatar_url: "https://cdn.discordapp.com/embed/avatars/1.png", username: "Another User", user_id: "b" },
+  },
+  {
+    user_id: "c",
+    profile: { avatar_url: "https://cdn.discordapp.com/embed/avatars/1.png", username: "A Queue User", user_id: "c" },
+  },
+  {
+    user_id: "d",
+    profile: {
+      avatar_url: "https://cdn.discordapp.com/embed/avatars/1.png",
+      username: "Another Queue User",
+      user_id: "d",
+    },
+  },
+];
 
 export default function Lobby({
   host,
@@ -53,6 +64,7 @@ export default function Lobby({
   host: Profile;
   queue: LobbyUser[];
 }) {
+  const router = useRouter();
   const url = window.location.origin + usePathname();
   const supabase = useSupabaseClient();
   const user = useUser();
@@ -69,20 +81,30 @@ export default function Lobby({
   const self = useMemo(() => queue.find((lu) => lu.user_id === user?.id), [queue, user?.id]);
   const [party, waiting] = useMemo(() => [queue.slice(0, 4), queue.slice(4)], [queue]);
 
-  console.log({ party, waiting });
-
   const isHost = user?.id === host.user_id;
   const isMember = !!self;
+  const isParty = !!party.find((lu) => lu.user_id === user?.id);
 
-  const [phase, setPhase] = useState<RaidPhase>("waiting");
+  const [showCopied, setShowCopied] = useState(false);
+  const handleCopyLink = useCallback((event: FocusEvent<HTMLInputElement>) => {
+    event.currentTarget.select();
+    document.execCommand("copy");
+    setShowCopied(true);
+    setTimeout(() => setShowCopied(false), 500);
+    event.currentTarget.setSelectionRange(0, 0);
+    event.currentTarget.blur();
+  }, []);
 
-  const handleStartRaid = useCallback(async () => {
-    const response = await supabase.from("lobby").update({ code: code.toUpperCase() }).eq("id", lobby.id);
-    if (response.error) console.error(response.error);
-    else {
-      setPhase("started");
-    }
-  }, [code, lobby.id, supabase]);
+  const [phase, setPhase] = useState<RaidPhase>(lobby.code ? "started" : "waiting");
+
+  const handleStartRaid = useCallback(
+    async (e?: SyntheticEvent) => {
+      e?.preventDefault();
+      const response = await supabase.from("lobby").update({ code: code.toUpperCase() }).eq("id", lobby.id);
+      if (response.error) console.error(response.error);
+    },
+    [code, lobby.id, supabase]
+  );
 
   const handleSelectedPokemonChange = useCallback(
     async (pokemon: NamedAPIResource) => {
@@ -98,16 +120,6 @@ export default function Lobby({
     },
     [lobby.id, supabase]
   );
-
-  const [showCopied, setShowCopied] = useState(false);
-  const handleCopyLink = useCallback((event: FocusEvent<HTMLInputElement>) => {
-    event.currentTarget.select();
-    document.execCommand("copy");
-    setShowCopied(true);
-    setTimeout(() => setShowCopied(false), 500);
-    event.currentTarget.setSelectionRange(0, 0);
-    event.currentTarget.blur();
-  }, []);
 
   const handleJoin = useCallback(async () => {
     if (!user)
@@ -129,19 +141,68 @@ export default function Lobby({
     if (response.error) console.error(response.error);
   }, [lobby.id, supabase, user]);
 
+  const handleRemoveUser = useCallback(
+    async (event: MouseEvent<HTMLButtonElement>) => {
+      const userId = event.currentTarget.value;
+      const response = await supabase.from("lobby_users").delete().eq("lobby_id", lobby.id).eq("user_id", userId);
+      if (response.error) console.error(response.error);
+    },
+    [lobby.id, supabase]
+  );
+
+  const handleReset = useCallback(async () => {
+    const response = await supabase.from("lobby").update({ code: null }).eq("id", lobby.id);
+    if (response.error) console.error(response.error);
+    else {
+      setCode("");
+      setPhase("waiting");
+    }
+  }, [lobby.id, supabase]);
+
+  const handleNext = useCallback(async () => {
+    // Remove everyone in the party (besides the host)
+    let response = await supabase
+      .from("lobby_users")
+      .delete()
+      .eq("lobby_id", lobby.id)
+      .in(
+        "user_id",
+        party.map((lu) => lu.user_id).filter((id) => id !== host.user_id)
+      );
+    if (response.error) console.error(response.error);
+    else {
+      const response = await supabase.from("lobby").update({ code: null }).eq("id", lobby.id);
+      if (response.error) console.error(response.error);
+      setCode("");
+    }
+  }, [host.user_id, lobby.id, party, supabase]);
+
+  const handleEnd = useCallback(async () => {
+    const response = await supabase.from("lobby").delete().eq("id", lobby.id);
+    if (response.error) console.error(response.error);
+    else {
+      router.push("/host");
+    }
+  }, [lobby.id, router, supabase]);
+
   /**
    * Live updates
    */
   const [presence, setPresence] = useState<Record<string, any>>({});
-  const channel = useRef<ReturnType<typeof supabase.channel>>();
   useEffect(() => {
     if (!user?.id) return;
 
     let heartbeat: number;
-    channel.current = supabase
+    const channel = supabase
       .channel(`lobby:${lobby.slug}`, { config: { presence: { key: user.id } } })
       .on("presence", { event: "sync" }, () => {
-        setPresence({ ...channel.current!.presenceState() });
+        setPresence((presence) => ({ ...presence, ...channel.presenceState() }));
+      })
+      .on("presence", { event: "join" }, (payload) => {
+        setPresence((presence) => ({ ...presence, [payload.key]: payload.newPresences }));
+      })
+      .on("presence", { event: "leave" }, (payload) => {
+        setPresence((presence) => omit(presence, payload.key));
       })
       .on(
         "postgres_changes",
@@ -151,11 +212,11 @@ export default function Lobby({
           table: "lobby_users",
           filter: `lobby_id=eq.${lobby.id}`,
         },
-        (payload) => {
+        async (payload) => {
           switch (payload.eventType) {
             case "INSERT": {
               const record = payload.new as LobbyUser;
-              supabase
+              await supabase
                 .from("profile")
                 .select("*")
                 .eq("user_id", record.user_id)
@@ -191,15 +252,25 @@ export default function Lobby({
         },
         (payload) => {
           const record = payload.new as ILobby;
-          const old = payload.old as ILobby;
-
-          if (record.code && !old.code && phase === "waiting") setPhase("started");
           setLobby(payload.new as ILobby);
+          setPhase((phase) => (record.code && phase === "waiting" ? "started" : "waiting"));
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "DELETE",
+          schema: "public",
+          table: "lobby",
+          filter: `id=eq.${lobby.id}`,
+        },
+        () => {
+          router.push("/host");
         }
       )
       .subscribe(async (status, error) => {
         if (status === "SUBSCRIBED") {
-          await channel.current!.track({
+          await channel.track({
             last_online: new Date().toISOString(),
           });
         }
@@ -207,12 +278,9 @@ export default function Lobby({
 
     return () => {
       window.clearInterval(heartbeat);
-
-      if (channel.current) {
-        Promise.all([channel.current.untrack(), supabase.removeChannel(channel.current)]);
-      }
+      Promise.all([channel.untrack(), supabase.removeChannel(channel)]);
     };
-  }, [lobby.id, lobby.slug, phase, supabase, user?.id]);
+  }, [lobby.id, lobby.slug, router, supabase, user?.id]);
 
   const chooseModalRef = useRef<HTMLElement>(null);
   useOnClickOutside(
@@ -222,8 +290,7 @@ export default function Lobby({
     }, [])
   );
 
-  // TODO: Add controls for host to kick people
-  // TODO: Host can see everyone queued up
+  const [isRejoining, setIsRejoining] = useState(true);
 
   return (
     <>
@@ -258,7 +325,7 @@ export default function Lobby({
           lobby.stars
         }★ ${unSlugify(lobby.pokemon_name ?? "random")}`}</h1>
       </hgroup>
-      <section className="max-w-sm">
+      <section className="max-w-sm mx-auto">
         <div className="bg-zinc-900/50 py-2 px-4 rounded-xl mb-4">
           <p className="whitespace-pre-wrap">{lobby.description}</p>
         </div>
@@ -325,6 +392,16 @@ export default function Lobby({
                   )}
                 />
                 <User avatar={avatar_url} username={username} />
+                {isHost && user_id !== user?.id && (
+                  <button
+                    className="absolute p-2 rounded-full bg-zinc-900/75 opacity-0 hover:opacity-100 transition"
+                    disabled={user?.id !== host.user_id}
+                    onClick={handleRemoveUser}
+                    value={user_id}
+                  >
+                    <XMarkIcon className="fill-red-500 h-8 w-8" />
+                  </button>
+                )}
                 <button disabled={user?.id !== user_id} onClick={() => setShowPickPokemon(true)}>
                   <Pokemon className="h-16 w-16" name={pokemon_name} />
                 </button>
@@ -362,25 +439,31 @@ export default function Lobby({
             </button>
           </div>
         )}
-        {isHost && (
-          <>
-            <hgroup className="w-full flex items-baseline gap-1 flex-wrap mb-2">
-              <h2 className="font-title font-bold text-xl tracking-wide text-zinc-300">Code</h2>
+        {(isHost || phase === "started") && isParty && (
+          <hgroup className="w-full flex items-baseline gap-1 flex-wrap mb-2">
+            <h2 className="font-title font-bold text-xl tracking-wide text-zinc-300">Code</h2>
+            {phase === "waiting" && isHost && (
               <small className="text-sm text-violet-300">
                 When you&apos;re ready, host the raid and fill in the code below
               </small>
-            </hgroup>
-            <div className="flex gap-2">
-              <label className="shrink-0">
+            )}
+          </hgroup>
+        )}
+        <div className="grid grid-cols-2 grid-flow-row gap-2">
+          {phase === "waiting" && isHost && (
+            <>
+              <form onSubmit={handleStartRaid}>
                 <input
-                  className="text-center tracking-widest uppercase text-xl max-w-[calc(6ch+theme(spacing.24))] select-text w-full px-4 py-1 rounded-lg bg-zinc-900/50 focus:outline-none border-2 border-transparent focus:border-purple-900 transition"
+                  autoFocus
+                  className="text-center tracking-[.25em] uppercase text-2xl max-w-[calc(6ch+theme(spacing.24))] w-full px-4 py-1 rounded-lg bg-zinc-900/50 focus:outline-none border-2 border-transparent focus:border-purple-900 transition"
                   name="code"
                   value={code}
                   placeholder="XXXXXX"
                   maxLength={6}
                   onChange={(e) => setCode(e.currentTarget.value)}
                 />
-              </label>
+                <button className="hidden" type="submit" />
+              </form>
               <button
                 className="w-full rounded-lg bg-violet-700 py-2 px-4 font-bold font-title tracking-widest disabled:opacity-25 disabled:cursor-not-allowed"
                 disabled={code.length < 6}
@@ -388,21 +471,73 @@ export default function Lobby({
               >
                 Start
               </button>
-            </div>
-          </>
-        )}
-        {!isHost && isMember && (
-          <button
-            className={clsx(
-              "w-full rounded-lg py-2 px-4 font-bold font-title tracking-widest disabled:opacity-50 disabled:cursor-not-allowed",
-              "transition-colors bg-zinc-700/25 border-2 border-zinc-500/50 text-zinc-500",
-              "hover:bg-zinc-700/50 hover:border-red-500/50 hover:text-red-500"
-            )}
-            onClick={handleLeave}
-          >
-            Leave
-          </button>
-        )}
+            </>
+          )}
+          {phase === "started" && (
+            <>
+              {isParty && (
+                <p className="w-full rounded-xl text-2xl font-title tracking-[.25em] text-center px-4 py-2 bg-zinc-900/50">
+                  {lobby.code}
+                </p>
+              )}
+              {isHost && (
+                <>
+                  <button
+                    className={clsx(
+                      "w-full rounded-lg py-2 px-4 font-bold font-title tracking-widest disabled:opacity-50 disabled:cursor-not-allowed",
+                      "transition-colors border border-purple-300 text-purple-300 bg-zinc-700/25",
+                      "hover:bg-zinc-700/50 hover:border-yellow-500/50 hover:text-yellow-500"
+                    )}
+                    onClick={handleReset}
+                  >
+                    Reset
+                  </button>
+                  <button
+                    className="w-full rounded-lg bg-red-700 py-2 px-4 font-bold font-title tracking-widest disabled:opacity-25 disabled:cursor-not-allowed"
+                    onClick={handleEnd}
+                  >
+                    Quit
+                  </button>
+                  <button
+                    className="w-full rounded-lg bg-green-700 py-2 px-4 font-bold font-title tracking-widest disabled:opacity-25 disabled:cursor-not-allowed"
+                    onClick={handleNext}
+                  >
+                    Rehost
+                  </button>
+                </>
+              )}
+            </>
+          )}
+          {!isHost && isMember && (
+            <>
+              <button
+                className={clsx(
+                  "w-full rounded-lg py-2 px-4 font-bold font-title tracking-widest disabled:opacity-50 disabled:cursor-not-allowed",
+                  "transition-colors border border-purple-300 text-purple-300 bg-zinc-700/25",
+                  "hover:bg-zinc-700/50 hover:border-red-500/50 hover:text-red-500"
+                )}
+                onClick={handleLeave}
+              >
+                Leave
+              </button>
+              <label
+                className={clsx(
+                  "flex items-center justify-center gap-2 w-full text-sm rounded-lg py-2 px-4 font-bold font-title tracking-widest disabled:opacity-25 disabled:cursor-not-allowed",
+                  "text-violet-300"
+                )}
+              >
+                <input hidden type="checkbox" onChange={(e) => setIsRejoining(e.currentTarget.checked)} />
+                <CheckIcon
+                  className={clsx(
+                    "border border-violet-300 rounded py-px h-4 w-4 transition",
+                    !isRejoining && "text-transparent"
+                  )}
+                />
+                Auto Rejoin
+              </label>
+            </>
+          )}
+        </div>
       </section>
     </>
   );
