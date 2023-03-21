@@ -33,7 +33,7 @@ export default function Home() {
         <h1 className="font-title font-bold text-4xl sm:text-6xl text-zinc-100 leading-relaxed">Raid.Exchange</h1>
         <p className="px-2 font-title text-xl text-zinc-300">The easiest way to raid.</p>
       </hgroup>
-      <div>
+      <div className="max-w-sm mx-auto">
         <div className="bg-zinc-700/50 p-4 rounded-xl">
           <p className="max-w-xs mb-4 text-violet-100">
             Post your raid. <br />

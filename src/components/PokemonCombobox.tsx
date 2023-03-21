@@ -41,10 +41,15 @@ export default function PokemonCombobox({
       }}
       placeholder="Choose Your Pokemon"
       components={{ MenuList }}
+      // @ts-ignore
       options={pokemonList as OptionProps<NamedAPIResource, false, never>}
+      // @ts-ignore
       getOptionLabel={(option) => option.name}
+      // @ts-ignore
       getOptionValue={(option) => option.name}
+      // @ts-ignore
       onChange={onChange}
+      // @ts-ignore
       value={selectedPokemon ? { name: selectedPokemon?.name } : undefined}
       scrollToFocusedOptionOnUpdate
       unstyled
@@ -61,10 +66,12 @@ function MenuList({ children, options, maxHeight, getValue, getStyles }: MenuLis
       className="rounded-lg"
       width="100%"
       height={maxHeight}
+      // @ts-ignore
       itemCount={children.length}
       itemSize={HEIGHT}
       initialScrollOffset={initialOffset}
     >
+      {/* @ts-ignore */}
       {({ index, style }) => <div style={style}>{children[index]}</div>}
     </FixedSizeList>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import { useSession, useSessionContext, useUser } from "@supabase/auth-helpers-react";
+import { useUser } from "@supabase/auth-helpers-react";
 import { useCallback, useEffect } from "react";
 import { useSupabaseClient } from "~/utils/supabase-client";
 import User from "./User";
@@ -9,7 +9,7 @@ import { usePathname } from "next/navigation";
 import Link from "next/link";
 
 export default function AuthHeader() {
-  const url = window.location.origin + usePathname();
+  const pathname = usePathname();
 
   const supabase = useSupabaseClient();
   const user = useUser();
@@ -21,10 +21,10 @@ export default function AuthHeader() {
       provider: "discord",
       options: {
         scopes: "identify",
-        redirectTo: url,
+        redirectTo: window.location.origin + pathname,
       },
     });
-  }, [supabase.auth, url]);
+  }, [supabase.auth, pathname]);
 
   useEffect(() => {
     supabase.auth.refreshSession().then((response) => {
@@ -32,7 +32,7 @@ export default function AuthHeader() {
         if (response.error.status === 400) return supabase.auth.signOut();
       }
     });
-  }, [supabase.auth, url]);
+  }, [supabase.auth, pathname]);
 
   return (
     <div className="sticky top-2 inset-x-2 z-10 flex justify-between gap-2 mb-8">

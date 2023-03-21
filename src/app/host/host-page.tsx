@@ -16,17 +16,17 @@ import Pokemon from "~/components/Pokemon";
 import PokemonCombobox from "~/components/PokemonCombobox";
 import Stars from "~/components/Stars";
 import XMarkIcon from "@heroicons/react/24/solid/XMarkIcon";
+import { useLocalStorage } from "usehooks-ts";
 
 export default function Host() {
-  const url = window.location.origin + usePathname();
+  const pathname = usePathname();
 
   const { rewards: itemList, pokemon: pokemonList } = useContext(PokemonContext);
   const supabase = useSupabaseClient();
   const user = useUser();
   const router = useRouter();
 
-  const savedData = window.localStorage.getItem("RE_SAVED_LOBBY");
-  const parsedData = savedData ? JSON.parse(savedData) : undefined;
+  const [parsedData] = useLocalStorage<any>("RE_SAVED_LOBBY", undefined);
 
   const [repeat, setRepeat] = useState(true);
   const [stars, setStars] = useState(parsedData?.stars ?? 5);
@@ -65,7 +65,7 @@ export default function Host() {
           provider: "discord",
           options: {
             scopes: "identify",
-            redirectTo: url,
+            redirectTo: window.location.origin + pathname,
           },
         });
 
@@ -106,7 +106,7 @@ export default function Host() {
 
       return router.push(`/lobby/${slug}`);
     },
-    [description, pokemon, repeat, rewards, router, stars, supabase, url, user]
+    [description, pokemon, repeat, rewards, router, stars, supabase, pathname, user]
   );
 
   return (

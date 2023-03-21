@@ -30,31 +30,6 @@ import { CheckIcon, XMarkIcon } from "@heroicons/react/24/solid";
 
 type RaidPhase = "waiting" | "started";
 
-const TEST_USERS: LobbyUser[] = [
-  {
-    user_id: "a",
-    pokemon_name: "umbreon",
-    profile: { avatar_url: "https://cdn.discordapp.com/embed/avatars/1.png", username: "Some User", user_id: "a" },
-  },
-  {
-    user_id: "b",
-    pokemon_name: "vaporeon",
-    profile: { avatar_url: "https://cdn.discordapp.com/embed/avatars/1.png", username: "Another User", user_id: "b" },
-  },
-  {
-    user_id: "c",
-    profile: { avatar_url: "https://cdn.discordapp.com/embed/avatars/1.png", username: "A Queue User", user_id: "c" },
-  },
-  {
-    user_id: "d",
-    profile: {
-      avatar_url: "https://cdn.discordapp.com/embed/avatars/1.png",
-      username: "Another Queue User",
-      user_id: "d",
-    },
-  },
-];
-
 export default function Lobby({
   host,
   lobby: serverLobby,
@@ -326,9 +301,11 @@ export default function Lobby({
         }★ ${unSlugify(lobby.pokemon_name ?? "random")}`}</h1>
       </hgroup>
       <section className="max-w-sm mx-auto">
-        <div className="bg-zinc-900/50 py-2 px-4 rounded-xl mb-4">
-          <p className="whitespace-pre-wrap">{lobby.description}</p>
-        </div>
+        {lobby.description && (
+          <div className="bg-zinc-900/50 py-2 px-4 rounded-xl mb-4">
+            <p className="whitespace-pre-wrap">{lobby.description}</p>
+          </div>
+        )}
         {isHost && (
           <div className="flex flex-col text-center mb-4">
             <span className="text-sm text-violet-300 mb-1">
