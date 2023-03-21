@@ -118,6 +118,7 @@ export default function Lobby({
 
   const handleLeave = useCallback(async () => {
     if (!user) return;
+    setIsRejoining(false);
     const response = await supabase.from("lobby_users").delete().eq("lobby_id", lobby.id).eq("user_id", user.id);
     if (response.error) console.error(response.error);
   }, [lobby.id, supabase, user]);
@@ -271,7 +272,11 @@ export default function Lobby({
     }, [])
   );
 
-  const [isRejoining, setIsRejoining] = useState(true);
+  const [isRejoining, setIsRejoining] = useState(false);
+
+  useEffect(() => {
+    if (isRejoining && !isMember) handleJoin();
+  }, [isRejoining, isMember, handleJoin]);
 
   return (
     <>
