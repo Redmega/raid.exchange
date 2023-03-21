@@ -103,7 +103,7 @@ export default function Host() {
 
       return router.push(`/lobby/${slug}`);
     },
-    [description, pokemon, repeat, rewards, router, stars, supabase, pathname, user]
+    [setParsedData, pokemon, stars, rewards, repeat, description, user, supabase, pathname, router]
   );
 
   return (
@@ -112,7 +112,7 @@ export default function Host() {
         <Image className="h-24 w-24 mx-auto" alt="Raid.Exchange Logo" src={Logo} />
         <h1 className="font-title font-bold text-2xl sm:text-4xl text-zinc-100 leading-relaxed">Create a Lobby</h1>
       </hgroup>
-      <form className="mx-auto w-full max-w-screen-sm rounded-xl bg-violet-900 p-2" onSubmit={handleCreateLobby}>
+      <form className="mx-auto w-full max-w-screen-sm rounded-xl bg-violet-900 p-2 mb-4" onSubmit={handleCreateLobby}>
         <div className="flex flex-col items-center sm:items-stretch sm:flex-row gap-2 mb-4">
           <div className="w-full max-w-[theme(spacing.56)]">
             <Stars stars={stars} onChange={setStars} />
@@ -122,7 +122,7 @@ export default function Host() {
           <div className="grow w-full rounded-lg overflow-hidden">
             <textarea
               className="outline-none bg-zinc-900/50 p-2 h-full w-full resize-none placeholder:text-violet-300"
-              placeholder="Enter your description. Include things like the poke you have, strategies, etc."
+              placeholder="Enter your description. Include things like the TERA type, the poke you are bringing, strategies, etc."
               maxLength={256}
               value={description}
               onChange={(e) => setDescription(e.currentTarget.value)}

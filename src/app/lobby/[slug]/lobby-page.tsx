@@ -311,7 +311,7 @@ export default function Lobby({
           lobby.stars
         }★ ${unSlugify(lobby.pokemon_name ?? "random")}`}</h1>
       </hgroup>
-      <section className="max-w-sm mx-auto">
+      <section className="max-w-sm mx-auto pb-4">
         {lobby.description && (
           <div className="bg-zinc-900/50 py-2 px-4 rounded-xl mb-4">
             <p className="whitespace-pre-wrap">{lobby.description}</p>
@@ -437,7 +437,7 @@ export default function Lobby({
             )}
           </hgroup>
         )}
-        <div className="grid grid-cols-2 grid-flow-row gap-2">
+        <div className="grid grid-cols-2 grid-flow-row gap-2 mb-2">
           {phase === "waiting" && isHost && (
             <>
               <form onSubmit={handleStartRaid}>
