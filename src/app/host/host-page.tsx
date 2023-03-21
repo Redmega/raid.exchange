@@ -26,7 +26,7 @@ export default function Host() {
   const user = useUser();
   const router = useRouter();
 
-  const [parsedData] = useLocalStorage<any>("RE_SAVED_LOBBY", undefined);
+  const [parsedData, setParsedData] = useLocalStorage<any>("RE_SAVED_LOBBY", undefined);
 
   const [repeat, setRepeat] = useState(true);
   const [stars, setStars] = useState(parsedData?.stars ?? 5);
@@ -50,16 +50,13 @@ export default function Host() {
       setLoading(true);
       event.preventDefault();
       // Save our data so we can check it when we come back
-      window.localStorage.setItem(
-        "RE_SAVED_LOBBY",
-        JSON.stringify({
-          pokemon,
-          stars,
-          rewards,
-          repeat,
-          description,
-        })
-      );
+      setParsedData({
+        pokemon,
+        stars,
+        rewards,
+        repeat,
+        description,
+      });
       if (!user)
         return supabase.auth.signInWithOAuth({
           provider: "discord",

@@ -40,7 +40,6 @@ export default function Lobby({
   queue: LobbyUser[];
 }) {
   const router = useRouter();
-  const url = window.location.origin + usePathname();
   const supabase = useSupabaseClient();
   const user = useUser();
 
@@ -59,6 +58,13 @@ export default function Lobby({
   const isHost = user?.id === host.user_id;
   const isMember = !!self;
   const isParty = !!party.find((lu) => lu.user_id === user?.id);
+
+  const pathname = usePathname();
+  const [url, setUrl] = useState(pathname);
+
+  useEffect(() => {
+    setUrl(window.location.origin + pathname);
+  }, [pathname]);
 
   const [showCopied, setShowCopied] = useState(false);
   const handleCopyLink = useCallback((event: FocusEvent<HTMLInputElement>) => {
@@ -108,7 +114,7 @@ export default function Lobby({
 
     const response = await supabase.from("lobby_users").insert({ lobby_id: lobby.id, user_id: user.id });
     if (response.error) console.error(response.error);
-  }, [lobby.id, supabase, url, user]);
+  }, [user, supabase, url, lobby.id]);
 
   const handleLeave = useCallback(async () => {
     if (!user) return;
