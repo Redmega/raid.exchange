@@ -26,6 +26,7 @@ const getLobby = cache(async (slug: string) => {
     .limit(1)
     .maybeSingle();
 
+  if (response.error) console.error(response.error);
   if (!response.data) return notFound();
 
   const profile = response.data.profile as Profile;
