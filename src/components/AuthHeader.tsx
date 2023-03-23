@@ -65,7 +65,7 @@ export default function AuthHeader() {
       {!user && (
         <Link
           className="inline-flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-violet-100 bg-violet-900"
-          href="/login"
+          href={{ pathname: "/login", query: { to: pathname } }}
         >
           Login
         </Link>

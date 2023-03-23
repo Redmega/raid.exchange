@@ -1,6 +1,6 @@
 "use client";
 
-import { useUser } from "@supabase/auth-helpers-react";
+import { useSessionContext, useUser } from "@supabase/auth-helpers-react";
 import { useSupabaseClient } from "~/utils/supabase-client";
 import { Profile, Lobby as ILobby, LobbyUser } from "./page";
 import { unSlugify } from "~/utils/pokemon-client";
@@ -42,6 +42,7 @@ export default function Lobby({
   const router = useRouter();
   const supabase = useSupabaseClient();
   const user = useUser();
+  const { isLoading } = useSessionContext();
 
   const [showPickPokemon, setShowPickPokemon] = useState(false);
 
@@ -103,16 +104,15 @@ export default function Lobby({
   );
 
   const handleJoin = useCallback(async () => {
-    if (!user) return router.push("/login");
-
-    const response = await supabase.from("lobby_users").insert({ lobby_id: lobby.id, user_id: user.id });
+    if (!user && !isLoading) return router.push(`/login?to=${encodeURIComponent(`/lobby/${lobby.slug}`)}`);
+    const response = await supabase.from("lobby_users").insert({ lobby_id: lobby.id, user_id: user!.id });
     if (response.error) console.error(response.error);
-  }, [user, router, supabase, lobby.id]);
+  }, [user, isLoading, router, lobby.slug, lobby.id, supabase]);
 
   const handleLeave = useCallback(async () => {
     if (!user) return;
-    setIsRejoining(false);
     const response = await supabase.from("lobby_users").delete().eq("lobby_id", lobby.id).eq("user_id", user.id);
+    setIsRejoining(false);
     if (response.error) console.error(response.error);
   }, [lobby.id, supabase, user]);
 
@@ -268,8 +268,8 @@ export default function Lobby({
   const [isRejoining, setIsRejoining] = useState(false);
 
   useEffect(() => {
-    if (isRejoining && !isMember) handleJoin();
-  }, [isRejoining, isMember, handleJoin]);
+    if (isRejoining && user && !isMember) handleJoin();
+  }, [isRejoining, isMember, handleJoin, user]);
 
   return (
     <>

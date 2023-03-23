@@ -27,7 +27,7 @@ export default function Home() {
           </p>
           <Link
             className="block text-center py-3 px-4 rounded-xl text-zinc-300 bg-violet-900"
-            href={user ? "/host" : "/login"}
+            href={{ pathname: user ? "/host" : "/login", query: { to: "/" } }}
           >
             Host Now
           </Link>

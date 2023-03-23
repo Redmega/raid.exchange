@@ -57,7 +57,7 @@ export default function Host() {
         repeat,
         description,
       });
-      if (!user) return router.push("/login");
+      if (!user) return router.push(`/login?to=${encodeURIComponent("/host")}`);
 
       // Generate a random slug firmness-softness-flavor-berries
       let slug: string | undefined;

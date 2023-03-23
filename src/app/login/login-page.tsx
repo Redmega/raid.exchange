@@ -7,11 +7,15 @@ import { Profile, useSupabaseClient } from "~/utils/supabase-client";
 import Logo from "$/logo.png";
 import { ArrowRightIcon, PaperAirplaneIcon } from "@heroicons/react/24/solid";
 import { useLocalStorage } from "usehooks-ts";
+import { useRouter, useSearchParams } from "next/navigation";
 
 export default function LoginPage() {
   const supabase = useSupabaseClient();
   const user = useUser();
   const { isLoading } = useSessionContext();
+
+  const router = useRouter();
+  const params = useSearchParams();
 
   const [profile, setProfile] = useState<Profile | null>(null);
   const [username, setUsername] = useState("");
@@ -31,17 +35,20 @@ export default function LoginPage() {
   useEffect(() => {
     if (!isLoading && user?.id) fetchProfile();
     else if (!isLoading && !user && anonAuthToken) {
-      // Attempt a login using stored credential
+      // Attempt a login using stored credentials
       supabase.auth
         .signInWithPassword({ email: `${anonAuthToken}@users.raid.exchange`, password: anonAuthToken })
         .then((response) => {
           if (response.error) {
             console.error(response.error);
             setAnonAuthToken({});
-          } else fetchProfile();
+          } else {
+            const redirectTo = params.get("to");
+            if (redirectTo) router.push(redirectTo);
+          }
         });
     }
-  }, [anonAuthToken, fetchProfile, isLoading, setAnonAuthToken, supabase, user, user?.id]);
+  }, [anonAuthToken, fetchProfile, isLoading, params, router, setAnonAuthToken, supabase, user, user?.id]);
 
   const handleSubmit = useCallback(
     async (event?: FormEvent) => {
@@ -67,9 +74,11 @@ export default function LoginPage() {
       if (response.error) console.error(response.error);
       else {
         setAnonAuthToken({ id: uuid });
+        const redirectTo = params.get("to");
+        if (redirectTo) router.push(redirectTo);
       }
     },
-    [setAnonAuthToken, supabase, user, username]
+    [params, router, setAnonAuthToken, supabase, user, username]
   );
 
   return (
