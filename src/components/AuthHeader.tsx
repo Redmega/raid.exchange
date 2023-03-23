@@ -13,7 +13,7 @@ export default function AuthHeader() {
   const supabase = useSupabaseClient();
   const user = useUser();
 
-  const handleLogout = useCallback(() => supabase.auth.signOut(), [supabase.auth]);
+  // const handleLogout = useCallback(() => supabase.auth.signOut(), [supabase.auth]);
 
   const handleDiscordLogin = useCallback(() => {
     return supabase.auth.signInWithOAuth({
@@ -45,12 +45,12 @@ export default function AuthHeader() {
               username={user.user_metadata.full_name}
             />
           </Link>
-          <button
+          {/* <button
             className="py-3 px-4 rounded-xl text-violet-100 bg-violet-900 md:bg-violet-900/50 hover:bg-violet-900 transition"
             onClick={handleLogout}
           >
             Logout
-          </button>
+          </button> */}
         </>
       )}
       {/* {!user && (
