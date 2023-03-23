@@ -15,7 +15,9 @@ export default function LoginPage() {
 
   const [profile, setProfile] = useState<Profile | null>(null);
   const [username, setUsername] = useState("");
+
   const [{ id: anonAuthToken }, setAnonAuthToken] = useLocalStorage<{ id?: string }>("RE_ANON_AUTH_KEY", {});
+
   const fetchProfile = useCallback(async () => {
     const response = await supabase.from("profile").select().eq("user_id", user?.id).maybeSingle();
 
