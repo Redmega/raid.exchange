@@ -57,14 +57,7 @@ export default function Host() {
         repeat,
         description,
       });
-      if (!user)
-        return supabase.auth.signInWithOAuth({
-          provider: "discord",
-          options: {
-            scopes: "identify",
-            redirectTo: window.location.origin + pathname,
-          },
-        });
+      if (!user) return router.push("/login");
 
       // Generate a random slug firmness-softness-flavor-berries
       let slug: string | undefined;
@@ -103,7 +96,7 @@ export default function Host() {
 
       return router.push(`/lobby/${slug}`);
     },
-    [setParsedData, pokemon, stars, rewards, repeat, description, user, supabase, pathname, router]
+    [setParsedData, pokemon, stars, rewards, repeat, description, user, supabase, router]
   );
 
   return (
@@ -185,7 +178,7 @@ export default function Host() {
         </section>
         <div className="flex items-center gap-4">
           <button
-            className="flex items-center justify-center w-full rounded-lg bg-violet-700 py-2 px-4 max-w-[theme(spacing.32)] font-bold font-title tracking-widest"
+            className="flex items-center justify-center ml-auto w-full rounded-lg bg-violet-700 py-2 px-4 max-w-[theme(spacing.32)] font-bold font-title tracking-widest"
             disabled={loading}
           >
             {loading ? <LoadingIcon className="text-violet-300/25 animate-spin h-5 w-5 m-0.5" /> : "Go"}

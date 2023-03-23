@@ -8,23 +8,7 @@ import { useUser } from "@supabase/auth-helpers-react";
 import Link from "next/link";
 
 export default function Home() {
-  const supabase = useSupabaseClient();
   const user = useUser();
-
-  const handleClickHost = useCallback(
-    (e: MouseEvent) => {
-      if (!user) {
-        e.preventDefault();
-        return supabase.auth.signInWithOAuth({
-          provider: "discord",
-          options: {
-            scopes: "identify",
-          },
-        });
-      }
-    },
-    [supabase.auth, user]
-  );
 
   return (
     <>
@@ -43,8 +27,7 @@ export default function Home() {
           </p>
           <Link
             className="block text-center py-3 px-4 rounded-xl text-zinc-300 bg-violet-900"
-            href="/host"
-            onClick={handleClickHost}
+            href={user ? "/host" : "/login"}
           >
             Host Now
           </Link>

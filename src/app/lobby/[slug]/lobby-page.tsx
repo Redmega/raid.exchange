@@ -103,18 +103,11 @@ export default function Lobby({
   );
 
   const handleJoin = useCallback(async () => {
-    if (!user)
-      return supabase.auth.signInWithOAuth({
-        provider: "discord",
-        options: {
-          scopes: "identify",
-          redirectTo: url,
-        },
-      });
+    if (!user) return router.push("/login");
 
     const response = await supabase.from("lobby_users").insert({ lobby_id: lobby.id, user_id: user.id });
     if (response.error) console.error(response.error);
-  }, [user, supabase, url, lobby.id]);
+  }, [user, router, supabase, lobby.id]);
 
   const handleLeave = useCallback(async () => {
     if (!user) return;
