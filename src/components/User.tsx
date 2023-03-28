@@ -1,4 +1,4 @@
-import { useUser } from "@supabase/auth-helpers-react";
+import Clefairy from "$/clefairy.png";
 import clsx from "clsx";
 import Image from "next/image";
 
@@ -23,7 +23,7 @@ export default function User({
         height={avatarSize}
         width={avatarSize}
         alt="Your avatar"
-        src={avatar}
+        src={avatar ?? Clefairy}
       />
       {!onlyAvatar && <span className="text-zinc-50">{username}</span>}
     </div>
