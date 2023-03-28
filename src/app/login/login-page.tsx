@@ -1,13 +1,15 @@
 "use client";
 
-import { useSessionContext, useUser } from "@supabase/auth-helpers-react";
-import Image from "next/image";
-import { FormEvent, useCallback, useContext, useEffect, useState } from "react";
+import { ArrowRightIcon } from "@heroicons/react/24/solid";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import { Profile, useSupabaseClient } from "~/utils/supabase-client";
-import Logo from "$/logo.png";
-import { ArrowRightIcon, PaperAirplaneIcon } from "@heroicons/react/24/solid";
 import { useLocalStorage } from "usehooks-ts";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useSessionContext, useUser } from "@supabase/auth-helpers-react";
+import DiscordLogo from "$/discord-mark-blue.svg";
+import Image from "next/image";
+import Logo from "$/logo.png";
+import { random } from "lodash-es";
 
 export default function LoginPage() {
   const supabase = useSupabaseClient();
@@ -20,7 +22,7 @@ export default function LoginPage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [username, setUsername] = useState("");
 
-  const [{ id: anonAuthToken }, setAnonAuthToken] = useLocalStorage<{ id?: string }>("RE_ANON_AUTH_KEY", {});
+  const [anonAuthToken, setAuthToken] = useLocalStorage<{ id?: string; provider?: "discord" }>("RE_ANON_AUTH_KEY", {});
 
   const fetchProfile = useCallback(async () => {
     const response = await supabase.from("profile").select().eq("user_id", user?.id).maybeSingle();
@@ -34,33 +36,39 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (!isLoading && user?.id) fetchProfile();
-    else if (!isLoading && !user && anonAuthToken) {
+    else if (!isLoading && !user && anonAuthToken.id && anonAuthToken.provider !== "discord") {
       // Attempt a login using stored credentials
       supabase.auth
-        .signInWithPassword({ email: `${anonAuthToken}@users.raid.exchange`, password: anonAuthToken })
+        .signInWithPassword({ email: `${anonAuthToken.id}@users.raid.exchange`, password: anonAuthToken.id })
         .then((response) => {
           if (response.error) {
             console.error(response.error);
-            setAnonAuthToken({});
+            setAuthToken({});
           } else {
             const redirectTo = params.get("to");
             if (redirectTo) router.push(redirectTo);
           }
         });
     }
-  }, [anonAuthToken, fetchProfile, isLoading, params, router, setAnonAuthToken, supabase, user, user?.id]);
+  }, [anonAuthToken, fetchProfile, isLoading, params, router, setAuthToken, supabase, user, user?.id]);
 
   const handleSubmit = useCallback(
     async (event?: FormEvent) => {
       event?.preventDefault();
       if (user) {
-        const response = await supabase.from("profile").update({ username });
+        await supabase.auth.updateUser({
+          data: {
+            full_name: username,
+          },
+        });
+        const response = await supabase.from("profile").update({ username }).eq("user_id", user.id);
         if (response.error) console.error(response.error);
+        else window.location.reload();
         return;
       }
 
       // Generate a new anonymous user
-      const uuid = window.crypto.randomUUID();
+      const uuid = anonAuthToken.id ?? window.crypto.randomUUID();
 
       const response = await supabase.auth.signUp({
         email: `${uuid}@users.raid.exchange`,
@@ -68,18 +76,37 @@ export default function LoginPage() {
         options: {
           data: {
             full_name: username,
+            avatar_url: window.location.origin + `/avatars/${random(3)}.png`,
           },
         },
       });
       if (response.error) console.error(response.error);
       else {
-        setAnonAuthToken({ id: uuid });
+        setAuthToken({ id: uuid });
         const redirectTo = params.get("to");
         if (redirectTo) router.push(redirectTo);
       }
     },
-    [params, router, setAnonAuthToken, supabase, user, username]
+    [anonAuthToken.id, params, router, setAuthToken, supabase, user, username]
   );
+
+  const handleDiscordSignup = useCallback(async () => {
+    const response = await supabase.auth.signInWithOAuth({
+      provider: "discord",
+      options: {
+        scopes: "identify",
+        redirectTo: window.location.toString(),
+      },
+    });
+    if (response.error) console.error(response.error);
+  }, [supabase.auth]);
+
+  // For discord login, save auth token
+  useEffect(() => {
+    if (!anonAuthToken.id && user?.app_metadata?.provider === "discord")
+      setAuthToken({ id: user.id, provider: "discord" });
+    if (!user && !isLoading) setUsername("");
+  }, [anonAuthToken, isLoading, setAuthToken, user]);
 
   return (
     <>
@@ -104,12 +131,25 @@ export default function LoginPage() {
             />
           </label>
           <button
-            className="flex items-center justify-center ml-auto rounded-lg bg-violet-700 py-2 px-4 max-w-[theme(spacing.32)] font-bold font-title tracking-wider"
+            className="flex items-center justify-center gap-2 rounded-lg w-full bg-violet-700 py-2 px-4 font-bold font-title tracking-wider mb-2"
             type="submit"
           >
-            {user ? "Update" : "Sign Up"}
-            <ArrowRightIcon className="w-4 h-4 ml-2" />
+            {user ? "Update" : "Sign Up Anonymously"}
+            <ArrowRightIcon className="w-6 h-6" />
           </button>
+          {user?.app_metadata?.provider !== "discord" && (
+            <button
+              className="flex items-center justify-center gap-2 w-full rounded-lg bg-violet-700 py-2 px-4 font-bold font-title tracking-wider mb-2"
+              type="button"
+              onClick={handleDiscordSignup}
+            >
+              Login with Discord
+              <DiscordLogo className="h-8 w-8" />
+            </button>
+          )}
+          {!isLoading && !user && anonAuthToken.provider === "discord" && (
+            <p className="text-xs text-center text-violet-300">You have previously logged in with Discord!</p>
+          )}
         </form>
       </div>
     </>
