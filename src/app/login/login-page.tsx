@@ -6,6 +6,7 @@ import { Profile, useSupabaseClient } from "~/utils/supabase-client";
 import { useLocalStorage } from "usehooks-ts";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSessionContext, useUser } from "@supabase/auth-helpers-react";
+import { v4 as uuidv4 } from "uuid";
 import DiscordLogo from "$/discord-mark-blue.svg";
 import Image from "next/image";
 import Logo from "$/logo.png";
@@ -68,7 +69,7 @@ export default function LoginPage() {
       }
 
       // Generate a new anonymous user
-      const uuid = anonAuthToken.id ?? window.crypto.randomUUID();
+      const uuid = anonAuthToken.id ?? uuidv4();
 
       const response = await supabase.auth.signUp({
         email: `${uuid}@users.raid.exchange`,

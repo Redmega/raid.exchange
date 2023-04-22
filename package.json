@@ -16,6 +16,7 @@
     "@types/node": "18.15.0",
     "@types/react": "18.0.28",
     "@types/react-dom": "18.0.11",
+    "@types/uuid": "^9.0.1",
     "clsx": "^1.2.1",
     "encoding": "^0.1.13",
     "eslint": "8.36.0",
@@ -29,7 +30,8 @@
     "react-window": "^1.8.8",
     "server-only": "^0.0.1",
     "typescript": "4.9.5",
-    "usehooks-ts": "^2.9.1"
+    "usehooks-ts": "^2.9.1",
+    "uuid": "^9.0.0"
   },
   "devDependencies": {
     "@svgr/webpack": "^6.5.1",
