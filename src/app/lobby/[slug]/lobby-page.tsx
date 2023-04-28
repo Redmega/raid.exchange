@@ -22,7 +22,7 @@ import PokemonCombobox from "~/components/PokemonCombobox";
 import { PokemonContext } from "~/components/PokemonProvider";
 import { NamedAPIResource } from "pokenode-ts";
 import { usePathname, useRouter } from "next/navigation";
-import { useOnClickOutside } from "usehooks-ts";
+import { useEventListener, useOnClickOutside } from "usehooks-ts";
 import { omit, times } from "lodash-es";
 import Image from "next/image";
 import clsx from "clsx";
@@ -270,6 +270,30 @@ export default function Lobby({
   useEffect(() => {
     if (isRejoining && user && !isMember) handleJoin();
   }, [isRejoining, isMember, handleJoin, user]);
+
+  // Refresh the data if visibility changes
+  const documentRef = useRef(typeof document === "undefined" ? null : document);
+  useEventListener(
+    "visibilitychange",
+    async (e) => {
+      if (documentRef.current?.visibilityState === "visible") {
+        const response = await supabase
+          .from("lobby")
+          .select(`*, lobby_users (*, profile:user_id (*))`)
+          .eq("slug", lobby.slug)
+          .order("created_at", { ascending: true, foreignTable: "lobby_users" })
+          .limit(1)
+          .maybeSingle();
+
+        if (!response.data) return router.push("/host");
+        setLobby(omit(response.data, ["profile", "lobby_users"]) as ILobby);
+        setQueue(response.data.lobby_users as LobbyUser[]);
+        if (lobby.code !== response.data.code)
+          setPhase((phase) => (response.data!.code && phase === "waiting" ? "started" : "waiting"));
+      }
+    },
+    documentRef
+  );
 
   return (
     <>
